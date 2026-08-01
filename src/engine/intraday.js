@@ -2,13 +2,21 @@
 //
 // Given a real daily OHLC bar (the "skeleton", M1 data) and a seed string,
 // deterministically generates 60 five-minute bars covering the TX day
-// session (08:45-13:45) such that:
+// session (08:45-13:45), plus the 301-point fine knot path they were
+// aggregated from, such that:
 //   - bars[0].o        === open
 //   - bars[59].c        === close
 //   - max(bars[*].h)    === high   (exact)
 //   - min(bars[*].l)    === low    (exact)
 //   - bars[i].c         === bars[i+1].o  for all i (no gaps)
+//   - knots[0] === open, knots[300] === close, max(knots) === high,
+//     min(knots) === low, knots[i*5..i*5+5] is bar i's source span.
 //   - same seed -> byte-identical output; different seed -> different path.
+//
+// Touch-price judgment (stop-loss, liquidation, margin) must walk `knots`,
+// not just bar h/l: a bar's h/l already reflects its own 5-knot span, but
+// only `knots` gives per-5-minute-tick granularity across the whole day
+// (SPEC.md §1/§4: 所有觸價判定以生成日內層為準).
 //
 // Algorithm (SPEC.md §1, ADR 0008 — supersedes the ADR-0008-flagged parts of
 // the original M2 backlog spec):
@@ -290,7 +298,14 @@ function recalibratedSegmentVarRate(vBar, tSeg, deltaLog) {
 }
 
 /**
- * Generate the 60 intraday 5-minute bars for one trading day.
+ * Generate the 60 intraday 5-minute bars for one trading day, plus the
+ * underlying 301-point fine knot path they were aggregated from.
+ *
+ * The fine knot path is the touch-price ground truth: margin/liquidation
+ * logic must walk `knots` (not just bar h/l) so that a wick that pierces the
+ * maintenance line intraday and recovers by the bar's close still triggers
+ * (SPEC.md §1/§4: "所有觸價判定...以生成日內層為準"). `bars` is a display
+ * aggregation of the same path — the two are never independently generated.
  *
  * @param {{open:number, high:number, low:number, close:number}} dayOHLC
  * @param {string} seedString - canonical seed, e.g. buildSeed(levelId, attempt, date)
@@ -298,7 +313,13 @@ function recalibratedSegmentVarRate(vBar, tSeg, deltaLog) {
  *        per-step volatility to force the rejection-sampling shrink fallback
  *        (SPEC/backlog requirement: "可用極端波動率參數強制觸發 shrink 分支").
  *        Never used by production game code (defaults to 1).
- * @returns {{t:number,o:number,h:number,l:number,c:number}[]} 60 bars
+ * @returns {{
+ *   bars: {t:number,o:number,h:number,l:number,c:number}[],
+ *   knots: number[]
+ * }} bars = 60 five-minute bars; knots = the 301 fine-resolution prices
+ *   (index 0 = open, index 300 = close, index i*5 = bar i's open / bar
+ *   (i-1)'s close) that bars was aggregated from — same seed, same call,
+ *   byte-identical on repeat.
  */
 export function generateIntraday(dayOHLC, seedString, options = {}) {
   const { open, high, low, close } = dayOHLC;
@@ -313,13 +334,15 @@ export function generateIntraday(dayOHLC, seedString, options = {}) {
   const N = BARS_PER_DAY;
   const rng = createRng(seedString);
 
-  // Flat day (一字線): nothing to generate, every bar sits at the same price.
+  // Flat day (一字線): nothing to generate, every bar and every fine knot
+  // sits at the same price.
   if (open === high && high === low && low === close) {
     const bars = [];
     for (let i = 0; i < N; i++) {
       bars.push({ t: i, o: open, h: open, l: open, c: open });
     }
-    return bars;
+    const knots = new Array(FINE_STEPS + 1).fill(open);
+    return { bars, knots };
   }
 
   const logO = Math.log(open);
@@ -420,5 +443,5 @@ export function generateIntraday(dayOHLC, seedString, options = {}) {
     }
     bars.push({ t: i, o, h, l, c });
   }
-  return bars;
+  return { bars, knots: rounded };
 }

@@ -38,7 +38,12 @@ function pickSample(targetCount) {
 
 const SAMPLE_DAYS = pickSample(200);
 
-function assertHardConstraints(row, bars, label) {
+// `knots` is optional: when supplied (the fine 301-point touch-price path,
+// M3 integration requirement — margin/liquidation must walk knots, not just
+// bar h/l), the same OHLC-reconstruction guarantees are also checked at the
+// knot level, and bars/knots consistency is checked separately by
+// assertBarsMatchKnots below.
+function assertHardConstraints(row, bars, label, knots = null) {
   assert.equal(bars.length, BARS_PER_DAY, `${label}: expected 60 bars`);
   assert.equal(bars[0].o, row.open, `${label}: open mismatch`);
   assert.equal(bars[BARS_PER_DAY - 1].c, row.close, `${label}: close mismatch`);
@@ -65,6 +70,49 @@ function assertHardConstraints(row, bars, label) {
     Math.abs(minL - row.low) <= PRICE_TOL(row.low),
     `${label}: min(l)=${minL} !== real low=${row.low}`
   );
+
+  if (knots !== null) {
+    const expectedLength = bars.length * 5 + 1;
+    assert.equal(knots.length, expectedLength, `${label}: expected ${expectedLength} fine knots`);
+    assert.equal(knots[0], row.open, `${label}: knots[0] open mismatch`);
+    assert.equal(knots[knots.length - 1], row.close, `${label}: knots[last] close mismatch`);
+    let maxK = -Infinity;
+    let minK = Infinity;
+    for (const k of knots) {
+      maxK = Math.max(maxK, k);
+      minK = Math.min(minK, k);
+    }
+    assert.ok(
+      Math.abs(maxK - row.high) <= PRICE_TOL(row.high),
+      `${label}: max(knots)=${maxK} !== real high=${row.high}`
+    );
+    assert.ok(
+      Math.abs(minK - row.low) <= PRICE_TOL(row.low),
+      `${label}: min(knots)=${minK} !== real low=${row.low}`
+    );
+  }
+}
+
+// M3 integration requirement: bars and knots must come from the same
+// generation pass. For every bar i, its h/l must equal the max/min of the
+// 5-knot span [i*5, i*5+5] it was aggregated from — this is what lets
+// margin/liquidation walk `knots` for touch-price judgment while `bars`
+// stays the display aggregation of the exact same path.
+function assertBarsMatchKnots(bars, knots, label) {
+  for (let i = 0; i < bars.length; i++) {
+    const fStart = i * 5;
+    const fEnd = fStart + 5;
+    let expectedH = -Infinity;
+    let expectedL = Infinity;
+    for (let j = fStart; j <= fEnd; j++) {
+      expectedH = Math.max(expectedH, knots[j]);
+      expectedL = Math.min(expectedL, knots[j]);
+    }
+    assert.equal(bars[i].h, expectedH, `${label}: bar ${i} h !== max(knots[${fStart}..${fEnd}])`);
+    assert.equal(bars[i].l, expectedL, `${label}: bar ${i} l !== min(knots[${fStart}..${fEnd}])`);
+    assert.equal(bars[i].o, knots[fStart], `${label}: bar ${i} o !== knots[${fStart}]`);
+    assert.equal(bars[i].c, knots[fEnd], `${label}: bar ${i} c !== knots[${fEnd}]`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -87,27 +135,27 @@ test('rng: different seeds produce different draw sequences', () => {
   assert.notDeepEqual(seqA, seqB);
 });
 
-test('generateIntraday: same seed -> byte-identical output (determinism)', () => {
+test('generateIntraday: same seed -> byte-identical output (determinism, bars AND knots)', () => {
   const row = ROWS.find((r) => r.date === '2020-03-16');
   const seed = buildSeed('epidemic', 1, row.date);
-  const barsA = generateIntraday(row, seed);
-  const barsB = generateIntraday(row, seed);
-  assert.deepEqual(barsA, barsB);
+  const resultA = generateIntraday(row, seed);
+  const resultB = generateIntraday(row, seed);
+  assert.deepEqual(resultA, resultB);
 });
 
-test('generateIntraday: different attempt (replay seed) -> different output', () => {
+test('generateIntraday: different attempt (replay seed) -> different output (bars AND knots)', () => {
   const row = ROWS.find((r) => r.date === '2020-03-16');
   const seedAttempt1 = buildSeed('epidemic', 1, row.date);
   const seedAttempt2 = buildSeed('epidemic', 2, row.date);
-  const barsA = generateIntraday(row, seedAttempt1);
-  const barsB = generateIntraday(row, seedAttempt2);
-  assert.notDeepEqual(barsA, barsB);
+  const resultA = generateIntraday(row, seedAttempt1);
+  const resultB = generateIntraday(row, seedAttempt2);
+  assert.notDeepEqual(resultA, resultB);
 });
 
 test('generateIntraday: log-space anchors — bar[0].o and bar[59].c pin to log(O)->log(C) endpoints', () => {
   const row = ROWS.find((r) => r.date === '2017-05-02');
   const seed = buildSeed('flat', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assert.equal(bars[0].o, row.open);
   assert.equal(bars[BARS_PER_DAY - 1].c, row.close);
 });
@@ -161,14 +209,14 @@ test('rng: first-draw decile distribution passes a chi-square uniformity check',
 // sample).
 // ---------------------------------------------------------------------------
 
-test(`generateIntraday: OHLC reconstruction holds exactly across ${SAMPLE_DAYS.length} sampled trading days`, () => {
+test(`generateIntraday: OHLC reconstruction holds exactly across ${SAMPLE_DAYS.length} sampled trading days (bars AND knots)`, () => {
   assert.ok(SAMPLE_DAYS.length >= 190, 'sample should be close to the requested 200 days');
   let failures = 0;
   for (const row of SAMPLE_DAYS) {
     const seed = buildSeed('m2-ohlc-check', 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars, knots } = generateIntraday(row, seed);
     try {
-      assertHardConstraints(row, bars, row.date);
+      assertHardConstraints(row, bars, row.date, knots);
     } catch (err) {
       failures++;
       console.error(err.message);
@@ -177,14 +225,14 @@ test(`generateIntraday: OHLC reconstruction holds exactly across ${SAMPLE_DAYS.l
   assert.equal(failures, 0, `${failures}/${SAMPLE_DAYS.length} days failed OHLC reconstruction`);
 });
 
-test(`generateIntraday: hard-constraint scan across the full ${ROWS.length}-day dataset — 0 violations`, () => {
+test(`generateIntraday: hard-constraint scan across the full ${ROWS.length}-day dataset — 0 violations (bars AND knots)`, () => {
   let failures = 0;
   const failedDates = [];
   for (const row of ROWS) {
     const seed = buildSeed('m2-full-scan', 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars, knots } = generateIntraday(row, seed);
     try {
-      assertHardConstraints(row, bars, row.date);
+      assertHardConstraints(row, bars, row.date, knots);
     } catch (err) {
       failures++;
       failedDates.push(row.date);
@@ -228,7 +276,7 @@ function computeRatios(rows, seedTag) {
   for (const row of rows) {
     if (row.high === row.low) continue; // flat day: sigma target is 0, ratio undefined
     const seed = buildSeed(seedTag, 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     const target = parkinsonSigma(row.high, row.low);
     const realized = realizedSigma(bars);
     ratios.push({ date: row.date, ratio: realized / target });
@@ -277,7 +325,7 @@ test(`generateIntraday: realized/target Parkinson sigma mean ratio within [0.9, 
 test('boundary: 一字線 (O=H=L=C) day produces 60 flat bars', () => {
   const row = { date: '2099-01-01', open: 10000, high: 10000, low: 10000, close: 10000 };
   const seed = buildSeed('boundary', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assert.equal(bars.length, BARS_PER_DAY);
   for (const bar of bars) {
     assert.equal(bar.o, 10000);
@@ -292,35 +340,35 @@ test('boundary: 跳空巨量日 2024-08-05 (real data, L=C gap-down day)', () =>
   assert.ok(row, 'fixture day 2024-08-05 must exist in TX.json');
   assert.equal(row.low, row.close, 'sanity: this fixture is expected to have L=C');
   const seed = buildSeed('crash', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, '2024-08-05');
 });
 
 test('boundary: synthetic H=O day (high occurs at the open)', () => {
   const row = { date: '2099-02-01', open: 10500, high: 10500, low: 10200, close: 10350 };
   const seed = buildSeed('boundary', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, 'H=O synthetic');
 });
 
 test('boundary: synthetic L=C day (low occurs at the close)', () => {
   const row = { date: '2099-02-02', open: 10500, high: 10700, low: 10200, close: 10200 };
   const seed = buildSeed('boundary', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, 'L=C synthetic');
 });
 
 test('boundary: synthetic H=C day (high occurs at the close)', () => {
   const row = { date: '2099-02-03', open: 10200, high: 10700, low: 10100, close: 10700 };
   const seed = buildSeed('boundary', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, 'H=C synthetic');
 });
 
 test('boundary: synthetic L=O day (low occurs at the open)', () => {
   const row = { date: '2099-02-04', open: 10100, high: 10700, low: 10100, close: 10500 };
   const seed = buildSeed('boundary', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, 'L=O synthetic');
 });
 
@@ -332,7 +380,7 @@ test('boundary: synthetic L=O day (low occurs at the open)', () => {
 test('rejection sampling: normal volatility still reconstructs OHLC exactly (accept-path coverage)', () => {
   const row = ROWS.find((r) => r.date === '2020-03-19'); // COVID low, high realized vol day
   const seed = buildSeed('rejection-normal', 1, row.date);
-  const bars = generateIntraday(row, seed);
+  const { bars } = generateIntraday(row, seed);
   assertHardConstraints(row, bars, '2020-03-19 (normal sigma)');
 });
 
@@ -343,7 +391,7 @@ test('shrink fallback: extreme sigmaMultiplier forces the retry budget to exhaus
   // attempts breach the [low, high] bound almost surely at the initial
   // sigma, forcing the shrink-and-retry fallback branch. The generator must
   // still satisfy every hard constraint even when shrinking kicks in.
-  const bars = generateIntraday(row, seed, { sigmaMultiplier: 200 });
+  const { bars } = generateIntraday(row, seed, { sigmaMultiplier: 200 });
   assertHardConstraints(row, bars, '2020-03-19 (sigmaMultiplier=200, shrink forced)');
 });
 
@@ -372,7 +420,7 @@ test('shrink fallback: known former-clip days (2020-05-14, 2017-01-23, 2010-06-0
     const row = byDate.get(date);
     assert.ok(row, `fixture day ${date} must exist in TX.json`);
     const seed = buildSeed('clip-case-check', 1, date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     assertHardConstraints(row, bars, date);
     const maxConsec = maxConsecutiveBoundaryPin(row, bars);
     assert.ok(maxConsec <= 3, `${date}: ${maxConsec} consecutive bars pinned to the boundary`);
@@ -385,7 +433,7 @@ test(`shrink fallback: no day in the full ${ROWS.length}-day dataset produces a 
   for (const row of ROWS) {
     if (row.open === row.high && row.high === row.low && row.low === row.close) continue; // genuine 一字線, not a defect
     const seed = buildSeed('flatline-full-scan', 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     if (maxConsecutiveBoundaryPin(row, bars) > 3) {
       flatlineDays++;
       flatlineDates.push(row.date);
@@ -433,7 +481,7 @@ function firstHProbability(row, n, seedTag) {
   let firstH = 0;
   for (const attempt of attempts) {
     const seed = buildSeed(seedTag, attempt, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     let idxH = -1;
     let idxL = -1;
     for (let i = 0; i < bars.length; i++) {
@@ -516,7 +564,7 @@ test('generateIntraday: bars carry natural wicks (not all pure-body candles) acr
   let totalBars = 0;
   for (const row of SAMPLE_DAYS) {
     const seed = buildSeed('wick-check', 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     let dayHasWick = false;
     for (const bar of bars) {
       totalBars++;
@@ -544,7 +592,7 @@ test('generateIntraday: the extreme bar wick touches the real day H/L exactly (n
   for (const row of SAMPLE_DAYS) {
     if (row.high === row.low) continue;
     const seed = buildSeed('wick-touch-check', 1, row.date);
-    const bars = generateIntraday(row, seed);
+    const { bars } = generateIntraday(row, seed);
     const touchesH = bars.some((b) => b.h === row.high);
     const touchesL = bars.some((b) => b.l === row.low);
     assert.ok(touchesH, `${row.date}: no bar's h reaches the real high`);
@@ -561,10 +609,15 @@ test('generateIntraday: the extreme bar wick touches the real day H/L exactly (n
 // in the output, and all hard constraints intact.
 // ---------------------------------------------------------------------------
 
-function assertNoNaN(bars, label) {
+function assertNoNaN(bars, label, knots = null) {
   for (const bar of bars) {
     for (const field of ['o', 'h', 'l', 'c']) {
       assert.ok(Number.isFinite(bar[field]), `${label}: bar.${field}=${bar[field]} is not a finite number`);
+    }
+  }
+  if (knots !== null) {
+    for (let i = 0; i < knots.length; i++) {
+      assert.ok(Number.isFinite(knots[i]), `${label}: knots[${i}]=${knots[i]} is not a finite number`);
     }
   }
 }
@@ -573,12 +626,14 @@ function assertSurvives500Seeds(row, seedTag) {
   const tokens = metaSeededAttemptTokens(500, seedTag);
   for (const token of tokens) {
     const seed = buildSeed(seedTag, token, row.date);
-    let bars;
+    let result;
     assert.doesNotThrow(() => {
-      bars = generateIntraday(row, seed);
+      result = generateIntraday(row, seed);
     }, `${seedTag}/${row.date}/${token}: generateIntraday threw unexpectedly`);
-    assertHardConstraints(row, bars, `${seedTag}/${row.date}/${token}`);
-    assertNoNaN(bars, `${seedTag}/${row.date}/${token}`);
+    const { bars, knots } = result;
+    assertHardConstraints(row, bars, `${seedTag}/${row.date}/${token}`, knots);
+    assertNoNaN(bars, `${seedTag}/${row.date}/${token}`, knots);
+    assertBarsMatchKnots(bars, knots, `${seedTag}/${row.date}/${token}`);
   }
 }
 
@@ -629,11 +684,52 @@ test('degenerate day: sigmaMultiplier=0 (forced zero variance on an otherwise no
   const tokens = metaSeededAttemptTokens(500, 'degenerate-zero-sigma');
   for (const token of tokens) {
     const seed = buildSeed('degenerate-zero-sigma', token, row.date);
-    let bars;
+    let result;
     assert.doesNotThrow(() => {
-      bars = generateIntraday(row, seed, { sigmaMultiplier: 0 });
+      result = generateIntraday(row, seed, { sigmaMultiplier: 0 });
     }, `degenerate-zero-sigma/${row.date}/${token}: generateIntraday threw unexpectedly`);
-    assertHardConstraints(row, bars, `degenerate-zero-sigma/${row.date}/${token}`);
-    assertNoNaN(bars, `degenerate-zero-sigma/${row.date}/${token}`);
+    const { bars, knots } = result;
+    assertHardConstraints(row, bars, `degenerate-zero-sigma/${row.date}/${token}`, knots);
+    assertNoNaN(bars, `degenerate-zero-sigma/${row.date}/${token}`, knots);
+    assertBarsMatchKnots(bars, knots, `degenerate-zero-sigma/${row.date}/${token}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// 9. bars/knots consistency (M3 integration gap, 2026-08-02): SPEC.md §1/§4
+// require that all touch-price judgment (stop-loss, maintenance-margin
+// liquidation) walk the fine 301-point knot path, not just bar h/l — a wick
+// that pierces the maintenance line intraday and recovers by the bar's
+// close must still trigger. That only holds if `bars` is provably the same
+// generation pass as `knots`, not a separately-computed aggregate. This is
+// the dedicated cross-check: every bar's o/h/l/c must equal the
+// open/max/min/close of its corresponding 5-knot span.
+// ---------------------------------------------------------------------------
+
+test(`generateIntraday: every bar's h/l equals the max/min of its 5-knot span across ${SAMPLE_DAYS.length} sampled trading days`, () => {
+  for (const row of SAMPLE_DAYS) {
+    const seed = buildSeed('bars-knots-consistency', 1, row.date);
+    const { bars, knots } = generateIntraday(row, seed);
+    assertBarsMatchKnots(bars, knots, row.date);
+  }
+});
+
+test('generateIntraday: bars/knots consistency holds for boundary and degenerate fixtures', () => {
+  const fixtures = [
+    { date: '2099-04-01', open: 10000, high: 10000, low: 10000, close: 10000 }, // 一字線
+    { date: '2099-04-02', open: 10500, high: 10500, low: 10200, close: 10350 }, // H=O
+    { date: '2099-04-03', open: 10500, high: 10700, low: 10200, close: 10200 }, // L=C
+    { date: '2099-04-04', open: 10000, high: 10001, low: 10000, close: 10001 }, // 1-point amplitude
+    { date: '2099-04-05', open: 10000, high: 10000, low: 9800, close: 9800 }, // H=O and L=C
+  ];
+  for (const row of fixtures) {
+    const seed = buildSeed('bars-knots-consistency-boundary', 1, row.date);
+    const { bars, knots } = generateIntraday(row, seed);
+    assertBarsMatchKnots(bars, knots, row.date);
+  }
+  // and a real former-clip day, under the shrink fallback
+  const clipRow = ROWS.find((r) => r.date === '2020-05-14');
+  const seed = buildSeed('bars-knots-consistency-boundary', 1, clipRow.date);
+  const { bars, knots } = generateIntraday(clipRow, seed);
+  assertBarsMatchKnots(bars, knots, clipRow.date);
 });
