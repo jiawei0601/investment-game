@@ -54,7 +54,21 @@ export const INFINITE_LEVEL = Object.freeze({
   goal: '沒有預設劇本，自己決定訓練多久、練什麼。',
 });
 
+// 馬賽克模式（ADR 0009）：跟無限模式一樣不是固定 level，rows 由
+// src/mosaic/build.js 的 buildMosaicRows() 產生後直接餵 createSession，
+// startDate/endDate 為 null 只是沿用同一套開局表單渲染邏輯（selectLevel()
+// 用 level.id 判斷要不要顯示局長輸入框，見 app.js ensureMosaicOptionsUI）。
+export const MOSAIC_LEVEL = Object.freeze({
+  id: 'mosaic',
+  name: '馬賽克',
+  range: '隨機起點・真實月份拼接',
+  startDate: null,
+  endDate: null,
+  goal: '反記憶行情、無資訊層：連方向都不能靠記憶猜（ADR 0009）。',
+});
+
 export function findLevel(id) {
   if (id === INFINITE_LEVEL.id) return INFINITE_LEVEL;
+  if (id === MOSAIC_LEVEL.id) return MOSAIC_LEVEL;
   return LEVELS.find((l) => l.id === id) ?? null;
 }

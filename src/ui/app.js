@@ -27,7 +27,9 @@ import { PRODUCTS, computeMargin, equityOf, positionsInitialReq, unrealizedPL, i
 // updateProfile/createProfile are the real thing now, not a stub.
 import { buildReport, updateProfile, createProfile } from '../report/index.js';
 import { loadCoreData, loadEventsForMonth, chipsForDate } from './data.js';
-import { LEVELS, INFINITE_LEVEL, findLevel } from './levels.js';
+import { LEVELS, INFINITE_LEVEL, MOSAIC_LEVEL, findLevel } from './levels.js';
+import { buildMosaicRows } from '../mosaic/index.js';
+import { shouldAutoPauseForEvents, AUTOPLAY_RATES, msPerTick } from './autoplay.js';
 import { createDailyChart, createIntradayChart, createEquityChart } from './chart.js';
 import {
   isFsaSupported,
@@ -60,6 +62,16 @@ const state = {
   equityChart: null,
   infiniteStart: null,
   infiniteEnd: null,
+  // 馬賽克模式（ADR 0009）：meta 是 buildMosaicRows() 回傳的 {startDate,
+  // warmupEndIndex, sourceMonths} 之中「UI 用得到的那部分」——只有 startDate
+  // 拿來算圖表暖示前 60 天的真實脈絡（見 enterPlayScreen），warmupEndIndex/
+  // sourceMonths 刻意不對 UI 呈現（規格：不標示暖示/拼接邊界）。
+  mosaicMeta: null,
+  // { timerId, rate }：自動播放計時器活在 UI 層本身（不是遊戲邏輯的一部
+  // 分），rate 選項/ms 換算共用 autoplay.js 的 AUTOPLAY_RATES/msPerTick，
+  // 絕不把 setInterval 的時鐘值傳進 session/engine 任何參數（AGENTS.md
+  // Date.now()/Math.random() 禁令只管遊戲邏輯路徑，這裡單純是畫面節奏）。
+  autoplay: { timerId: null, rate: 1 },
   pendingPlan: null,
   pendingContradictions: null,
   pendingMarketOrder: null,
@@ -107,7 +119,7 @@ function commitAttempt(levelId, n) {
 function renderLevelCards() {
   const grid = $('level-select');
   grid.innerHTML = '';
-  for (const level of [...LEVELS, INFINITE_LEVEL]) {
+  for (const level of [...LEVELS, INFINITE_LEVEL, MOSAIC_LEVEL]) {
     const card = document.createElement('div');
     card.className = 'level-card';
     card.dataset.levelId = level.id;
@@ -121,6 +133,7 @@ function selectLevel(level) {
   state.level = level;
   state.infiniteStart = null;
   state.infiniteEnd = null;
+  state.mosaicMeta = null;
   state.contradictionsAtStart = [];
   state.planModified = false;
   document.querySelectorAll('.level-card').forEach((c) => c.classList.toggle('selected', c.dataset.levelId === level.id));
@@ -128,8 +141,27 @@ function selectLevel(level) {
   $('setup-form-goal').textContent = level.goal;
   $('infinite-options').hidden = level.id !== INFINITE_LEVEL.id;
   $('infinite-range-label').textContent = '';
+  if ($('mosaic-options')) $('mosaic-options').hidden = level.id !== MOSAIC_LEVEL.id;
   if (level.id === INFINITE_LEVEL.id) checkInfiniteResume();
   $('setup-form').hidden = false;
+}
+
+// 局長輸入框（月）只有馬賽克模式需要（buildMosaicRows 的 monthsTarget），
+// 沒有對應的 index.html 靜態元素——用 JS 動態建、插到 infinite-options 旁邊
+// （跟 infinite-options 同一個 field-row 慣例），只建立一次。
+function ensureMosaicOptionsUI() {
+  if ($('mosaic-options')) return;
+  const div = document.createElement('div');
+  div.id = 'mosaic-options';
+  div.className = 'field-row';
+  div.hidden = true;
+  div.innerHTML = `
+    <label>局長（月）
+      <input type="number" id="mosaic-months" min="1" max="24" step="1" value="6" />
+    </label>
+    <span class="hint">起始日／拼接月份皆由種子決定，開局當下即定案（同 attempt 重玩一致）。</span>
+  `;
+  $('infinite-options').insertAdjacentElement('afterend', div);
 }
 
 function checkInfiniteResume() {
@@ -274,6 +306,28 @@ async function startSessionFlow(plan) {
     endDate = state.infiniteEnd;
   }
   const attempt = peekNextAttempt(state.level.id);
+
+  // 馬賽克模式（ADR 0009）：dailyRows 換成 buildMosaicRows() 產出的拼接序
+  // 列，startDate/endDate 直接取那份序列本身的頭尾——createSession 的
+  // rowsBetween 只是原樣把整份序列篩回來（已排序、含頭含尾），session/margin/
+  // behavior 完全不知道自己吃到的是拼接資料，這正是 ADR 0009「mosaic 只是
+  // dailyRows 產生器」的意思。
+  let mosaicDailyRows = state.dailyRows;
+  if (state.level.id === MOSAIC_LEVEL.id) {
+    const monthsTarget = Number($('mosaic-months')?.value) || 6;
+    let built;
+    try {
+      built = buildMosaicRows({ attempt, dailyRows: state.dailyRows, monthsTarget });
+    } catch (err) {
+      alert(`無法開局：${err.message}`);
+      return;
+    }
+    mosaicDailyRows = built.rows;
+    startDate = built.rows[0].date;
+    endDate = built.rows[built.rows.length - 1].date;
+    state.mosaicMeta = built.meta;
+  }
+
   let session;
   try {
     session = createSession({
@@ -284,7 +338,7 @@ async function startSessionFlow(plan) {
       initialCash: cash,
       plan,
       monthlyIncome: income,
-      dailyRows: state.dailyRows,
+      dailyRows: mosaicDailyRows,
     });
   } catch (err) {
     alert(`無法開局：${err.message}`);
@@ -297,21 +351,47 @@ async function startSessionFlow(plan) {
 
 // --------------------------------------------------------------- play screen
 
+function isMosaicMode() {
+  return state.level?.id === MOSAIC_LEVEL.id;
+}
+
+// 馬賽克模式圖表起點要往前補真實資料（規格「圖表起始顯示暖示前 60 天脈
+// 絡」）——只補顯示用，不進 session.rows，不可點擊回放（openIntradayModal
+// 本來就只認 playedDates 內的日期，多出來的脈絡天數自然是唯讀）。
+function mosaicContextRows() {
+  if (!state.mosaicMeta) return [];
+  const idx = state.dailyRows.findIndex((r) => r.date === state.mosaicMeta.startDate);
+  if (idx <= 0) return [];
+  return state.dailyRows.slice(Math.max(0, idx - 60), idx);
+}
+
 async function enterPlayScreen() {
   showScreen('screen-play');
   if (state.chart) state.chart.destroy();
   state.chart = createDailyChart($('daily-chart'));
   state.chart.onDayClick(openIntradayModal);
   const rowsSoFar = state.session.rows.slice(0, state.session.cursor);
-  state.chart.setData(rowsSoFar, state.chipsRows);
+  const mosaic = isMosaicMode();
+  const chartRows = mosaic ? [...mosaicContextRows(), ...rowsSoFar] : rowsSoFar;
+  // ADR 0009 資訊層歸零：馬賽克模式全程不顯示籌碼副圖（傳空陣列，
+  // chart.js 的 setData 在 chipsPoints 為空時本來就會把 chipsSeries 收起
+  // 來，不需要另開一套隱藏邏輯）。
+  state.chart.setData(chartRows, mosaic ? [] : state.chipsRows);
   renderOrderProductCards();
   renderHeader();
   renderAccountPanel();
   renderPositionsTable();
   renderOrderQueue();
   updateOrderFormVisibility();
-  const anchorRow = state.session.rows[Math.max(state.session.cursor - 1, 0)];
-  await loadAndRenderMonthEvents(monthOf(anchorRow.date));
+  // ADR 0009 資訊層歸零：事件卡面板整個藏起來，且從第一天就不打
+  // loadEventsForMonth——馬賽克的合成日曆日期即使剛好落在某個真實年月，
+  // 那個月的事件卡內容跟拼接段的行情完全對不上，寧可不 fetch 也不要讓玩
+  // 家看到不相干的新聞。
+  $('events-panel').hidden = mosaic;
+  if (!mosaic) {
+    const anchorRow = state.session.rows[Math.max(state.session.cursor - 1, 0)];
+    await loadAndRenderMonthEvents(monthOf(anchorRow.date));
+  }
   updateSettlementWarning();
 }
 
@@ -587,6 +667,10 @@ function saveInfiniteProgress() {
   }
 }
 
+// 回傳這一天新增的事件切片（undefined＝推進失敗/中止）——autoplay 的 tick
+// 需要這個回傳值判斷是否該自動暫停（shouldAutoPauseForEvents，見
+// autoplay.js），手動點「下一天」的呼叫端本來就不理會回傳值，兩邊共用同一
+// 條推進路徑，沒有第二份推進邏輯。
 async function handleAdvanceDay() {
   document.querySelectorAll('.overnight-reason-input').forEach((input) => {
     const reason = input.value.trim();
@@ -595,6 +679,7 @@ async function handleAdvanceDay() {
     }
   });
 
+  const mosaic = isMosaicMode();
   const prevAnchor = state.session.rows[Math.max(state.session.cursor - 1, 0)];
   const prevMonth = monthOf(prevAnchor.date);
   const beforeCount = state.session.events.length;
@@ -603,12 +688,12 @@ async function handleAdvanceDay() {
     state.session = advanceDay(state.session);
   } catch (err) {
     alert(`推進失敗：${err.message}`);
-    return;
+    return undefined;
   }
 
   const newEvents = state.session.events.slice(beforeCount);
   const newRow = state.session.rows[state.session.cursor - 1];
-  state.chart.appendDay(newRow, chipsForDate(state.chipsRows, newRow.date));
+  state.chart.appendDay(newRow, mosaic ? null : chipsForDate(state.chipsRows, newRow.date));
 
   showDaySummaryToasts(newEvents);
   renderHeader();
@@ -618,12 +703,14 @@ async function handleAdvanceDay() {
   for (const product of Object.keys(PRODUCTS)) updateMarginPreview(product);
 
   const newMonth = monthOf(newRow.date);
-  if (newMonth !== prevMonth) await loadAndRenderMonthEvents(newMonth);
+  if (!mosaic && newMonth !== prevMonth) await loadAndRenderMonthEvents(newMonth);
 
   updateSettlementWarning();
   saveInfiniteProgress();
 
   if (state.session.finished) goToSettlement();
+
+  return newEvents;
 }
 
 async function loadAndRenderMonthEvents(monthStr) {
@@ -734,7 +821,86 @@ async function handleSaveReport() {
   }
 }
 
+// --------------------------------------------------------------- autoplay
+
+// 播放／暫停控制沒有對應的 index.html 靜態元素——用 JS 動態建、插到既有
+// 「下一天」按鈕前面，只建立一次。
+function ensureAutoplayControlsUI() {
+  if ($('autoplay-toggle-btn')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'autoplay-controls';
+  wrap.className = 'field-row';
+  wrap.innerHTML = `
+    <button type="button" id="autoplay-toggle-btn" class="btn-secondary">▶ 播放</button>
+    <label>速率
+      <select id="autoplay-rate-select">
+        ${AUTOPLAY_RATES.map((r) => `<option value="${r}"${r === 1 ? ' selected' : ''}>${r} 根／秒</option>`).join('')}
+      </select>
+    </label>
+  `;
+  $('advance-day-btn').insertAdjacentElement('beforebegin', wrap);
+}
+
+function isAnyModalOpen() {
+  return !$('thesis-modal').hidden || !$('contradiction-modal').hidden || !$('intraday-modal').hidden;
+}
+
+function isAutoplaying() {
+  return state.autoplay.timerId !== null;
+}
+
+function setAutoplayButtonLabel() {
+  $('autoplay-toggle-btn').textContent = isAutoplaying() ? '⏸ 暫停' : '▶ 播放';
+}
+
+function stopAutoplay() {
+  if (state.autoplay.timerId !== null) {
+    clearInterval(state.autoplay.timerId);
+    state.autoplay.timerId = null;
+  }
+  setAutoplayButtonLabel();
+}
+
+// 一個 tick＝跟手動按「下一天」完全同一條路徑（handleAdvanceDay）；tick 本
+// 身只負責「這次要不要繼續」的判斷，不重做任何推進邏輯。
+async function autoplayTick() {
+  if (isAnyModalOpen()) {
+    stopAutoplay();
+    return;
+  }
+  const newEvents = await handleAdvanceDay();
+  if (newEvents === undefined) {
+    stopAutoplay(); // advanceDay 失敗/中止
+    return;
+  }
+  if (state.session.finished || shouldAutoPauseForEvents(newEvents)) {
+    stopAutoplay();
+  }
+}
+
+function startAutoplay() {
+  if (isAutoplaying()) return;
+  if (state.session?.finished) return;
+  state.autoplay.timerId = setInterval(autoplayTick, msPerTick(state.autoplay.rate));
+  setAutoplayButtonLabel();
+}
+
+function toggleAutoplay() {
+  if (isAutoplaying()) stopAutoplay();
+  else startAutoplay();
+}
+
+function changeAutoplayRate() {
+  state.autoplay.rate = Number($('autoplay-rate-select').value) || 1;
+  if (isAutoplaying()) {
+    // 速率切換在播放中即時生效：重開一個新間隔的計時器,不算暫停。
+    clearInterval(state.autoplay.timerId);
+    state.autoplay.timerId = setInterval(autoplayTick, msPerTick(state.autoplay.rate));
+  }
+}
+
 function resetToSetup() {
+  stopAutoplay();
   state.session = null;
   state.level = null;
   if (state.chart) {
@@ -792,8 +958,15 @@ function wireStaticHandlers() {
     state.pendingMarketOrder = null;
   });
 
-  $('advance-day-btn').addEventListener('click', handleAdvanceDay);
+  // 播放中按「下一天」= 先暫停再推一天（規格第 5 點），不是疊加推進。
+  $('advance-day-btn').addEventListener('click', () => {
+    if (isAutoplaying()) stopAutoplay();
+    handleAdvanceDay();
+  });
+  $('autoplay-toggle-btn').addEventListener('click', toggleAutoplay);
+  $('autoplay-rate-select').addEventListener('change', changeAutoplayRate);
   $('end-run-btn').addEventListener('click', () => {
+    stopAutoplay();
     if (confirm('確定要結束本局嗎？未跑完的天數不會再產生資料，直接進戰報。')) goToSettlement();
   });
 
@@ -824,6 +997,8 @@ async function resumeInfiniteProgress() {
 }
 
 async function init() {
+  ensureMosaicOptionsUI();
+  ensureAutoplayControlsUI();
   wireStaticHandlers();
   renderPlanFields();
   try {
