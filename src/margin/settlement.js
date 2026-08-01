@@ -57,7 +57,7 @@ export function markToMarket(account, { date, settle }) {
 // 優先。現金為負但所有部位都在賺錢時，同一條規則自然會選到「每口獲利最少」
 // 的部位強制實現獲利（SPEC：「現金為負而部位皆獲利時，同一機制會強平獲利
 // 部位以實現獲利回補」）——不是分支特例，就是同一個比較鍵的自然結果。
-function pickLiquidationTarget(positions, price) {
+export function pickLiquidationTarget(positions, price) {
   let best = positions[0];
   let bestKey = unrealizedPL(best, price) / best.lots;
   for (let i = 1; i < positions.length; i++) {
@@ -80,12 +80,69 @@ function isHigherLiquidationPriority(key, p, bestKey, best) {
   return p.openDate < best.openDate;
 }
 
-// 盤中強平：對 knots（生成日內細路徑，逐點，含影線）逐點計算權益，跌破
-// 維持保證金 → 依 pickLiquidationTarget 排序砍倉，一次一口，砍完重新評估
-// （可能換到另一個部位、可能同一部位繼續砍），直到權益回到維持保證金以
-// 上，或部位全部平完為止（現金即使仍是負值，只要沒有部位可砍就停手——
-// 帳戶可以留在負權益狀態，這是刻意的：M3 不做超額追繳或帳戶凍結，那是
-// 遊戲層的敘事，不是保證金引擎的機制）。
+// 單點強平入口（M4 新增，SPEC §4 強平規則不變，這裡只是把 checkIntraday
+// 內層「在單一價格上砍到維持保證金滿足」的迴圈拆成獨立、可單獨呼叫的函數）。
+// 用途：game 層要把「玩家自己掛的停損/停利單觸價成交」與「保證金引擎的
+// 強制平倉」放進同一個逐 knot 時序迴圈時，不能先把玩家掛單全部跑完、再
+// 對整天 knots 重新掃一次強平（那樣兩種成交的先後順序會失真、事件的
+// knotIndex 也會時序倒流）。checkAtPrice 讓呼叫端在自己的單一 knot 迴圈裡，
+// 每處理完一個 knot 的玩家掛單成交後，立刻在同一個價格點呼叫一次，確保
+// 兩種成交交錯的先後順序、以及 knotIndex 的單調性，都跟真實時間軸一致。
+// checkIntraday（下面）本身現在就是「逐 knot 呼叫 checkAtPrice」的殼——
+// 排序/砍倉演算法只有這一份，不會分岔成兩套。
+export function checkAtPrice(account, { date, price, knotIndex }, options = {}) {
+  if (!Number.isFinite(price)) {
+    throw new Error(`checkAtPrice: price must be a finite number, got ${JSON.stringify(price)}`);
+  }
+
+  let working = account;
+  const events = [];
+  let equity = equityOf(working, price);
+  let maintenanceRequired = positionsMaintenanceReq(working.positions, price);
+
+  while (working.positions.length > 0 && equity < maintenanceRequired) {
+    const target = pickLiquidationTarget(working.positions, price);
+    const targetTotalPL = unrealizedPL(target, price);
+    const reason = targetTotalPL >= 0 ? 'profit_realization' : 'loss';
+
+    const fee = feePerLot(target.product, options);
+    const tax = taxPerLot(price, target.product);
+    const lotPL = roundTWD((price - target.entryPrice) * target.side * PRODUCTS[target.product].mult);
+    const remaining = target.lots - 1;
+    const newPositions = remaining > 0
+      ? working.positions.map((p) => (p === target ? { ...p, lots: remaining } : p))
+      : working.positions.filter((p) => p !== target);
+
+    working = { ...working, cash: working.cash + lotPL - fee - tax, positions: newPositions };
+
+    const equityAfter = equityOf(working, price);
+    events.push({
+      type: 'force_liquidation',
+      date,
+      knotIndex,
+      product: target.product,
+      side: target.side,
+      lots: 1,
+      price,
+      realizedPL: lotPL,
+      fee,
+      tax,
+      reason,
+      equityAfter,
+    });
+    events.push({ type: 'cost', date, product: target.product, category: 'force_liquidation', fee, tax, total: fee + tax });
+
+    equity = equityAfter;
+    maintenanceRequired = positionsMaintenanceReq(working.positions, price);
+  }
+
+  return { account: withLedger(working, events), events };
+}
+
+// 盤中強平：對 knots（生成日內細路徑，逐點，含影線）逐點呼叫
+// checkAtPrice，直到權益回到維持保證金以上，或部位全部平完為止（現金即使
+// 仍是負值，只要沒有部位可砍就停手——帳戶可以留在負權益狀態，這是刻意
+// 的：M3 不做超額追繳或帳戶凍結，那是遊戲層的敘事，不是保證金引擎的機制）。
 export function checkIntraday(account, { date, knots }, options = {}) {
   if (!Array.isArray(knots)) {
     throw new Error('checkIntraday: knots must be an array of finite numbers');
@@ -100,46 +157,10 @@ export function checkIntraday(account, { date, knots }, options = {}) {
   const events = [];
 
   for (let knotIndex = 0; knotIndex < knots.length; knotIndex++) {
-    const price = knots[knotIndex];
-    let equity = equityOf(working, price);
-    let maintenanceRequired = positionsMaintenanceReq(working.positions, price);
-
-    while (working.positions.length > 0 && equity < maintenanceRequired) {
-      const target = pickLiquidationTarget(working.positions, price);
-      const targetTotalPL = unrealizedPL(target, price);
-      const reason = targetTotalPL >= 0 ? 'profit_realization' : 'loss';
-
-      const fee = feePerLot(target.product, options);
-      const tax = taxPerLot(price, target.product);
-      const lotPL = roundTWD((price - target.entryPrice) * target.side * PRODUCTS[target.product].mult);
-      const remaining = target.lots - 1;
-      const newPositions = remaining > 0
-        ? working.positions.map((p) => (p === target ? { ...p, lots: remaining } : p))
-        : working.positions.filter((p) => p !== target);
-
-      working = { ...working, cash: working.cash + lotPL - fee - tax, positions: newPositions };
-
-      const equityAfter = equityOf(working, price);
-      events.push({
-        type: 'force_liquidation',
-        date,
-        knotIndex,
-        product: target.product,
-        side: target.side,
-        lots: 1,
-        price,
-        realizedPL: lotPL,
-        fee,
-        tax,
-        reason,
-        equityAfter,
-      });
-      events.push({ type: 'cost', date, product: target.product, category: 'force_liquidation', fee, tax, total: fee + tax });
-
-      equity = equityAfter;
-      maintenanceRequired = positionsMaintenanceReq(working.positions, price);
-    }
+    const result = checkAtPrice(working, { date, price: knots[knotIndex], knotIndex }, options);
+    working = result.account;
+    events.push(...result.events);
   }
 
-  return { account: withLedger(working, events), events };
+  return { account: working, events };
 }

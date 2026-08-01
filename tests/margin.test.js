@@ -22,6 +22,12 @@ import {
   rollover,
   markToMarket,
   checkIntraday,
+  checkAtPrice,
+  pickLiquidationTarget,
+  equityOf,
+  unrealizedPL,
+  positionsInitialReq,
+  positionsMaintenanceReq,
   deposit,
   withdraw,
   isSettlementDay,
@@ -509,4 +515,77 @@ test('open/close: unknown product throws immediately (assertProduct guard)', () 
   const acct = createAccount({ cash: 100000 });
   assert.throws(() => open(acct, { date: '2024-01-02', product: 'BTC', side: 1, lots: 1, price: 100 }), /unknown product/);
   assert.throws(() => close(acct, { date: '2024-01-02', product: 'BTC', lots: 1, price: 100 }), /unknown product/);
+});
+
+// ---------------------------------------------------------------------
+// checkAtPrice (M4-driven addition) — single-price liquidation entry point.
+// checkIntraday is now implemented purely as "call checkAtPrice once per
+// knot", so these tests both pin checkAtPrice's own contract and, via the
+// equivalence test, guard against the two ever silently diverging again.
+// ---------------------------------------------------------------------
+test('checkAtPrice: single call at one price matches checkIntraday([price])', () => {
+  let acct = createAccount({ cash: 800000 });
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TX', side: 1, lots: 1, price: 17000 }));
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TMF', side: 1, lots: 25, price: 17000 }));
+
+  const viaCheckAtPrice = checkAtPrice(acct, { date: '2024-01-03', price: 16000, knotIndex: 0 });
+  const viaCheckIntraday = checkIntraday(acct, { date: '2024-01-03', knots: [16000] });
+
+  assert.deepEqual(viaCheckAtPrice.account, viaCheckIntraday.account);
+  assert.deepEqual(viaCheckAtPrice.events, viaCheckIntraday.events);
+});
+
+test('checkAtPrice: chaining one call per knot reproduces checkIntraday over the full knots array', () => {
+  let acct = createAccount({ cash: 300000 });
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TX', side: 1, lots: 1, price: 17000 }));
+  const knots = [17000, 16800, 16200, 15600, 15900, 16100];
+
+  let chained = acct;
+  let chainedEvents = [];
+  for (let i = 0; i < knots.length; i++) {
+    const r = checkAtPrice(chained, { date: '2024-01-03', price: knots[i], knotIndex: i });
+    chained = r.account;
+    chainedEvents = chainedEvents.concat(r.events);
+  }
+
+  const whole = checkIntraday(acct, { date: '2024-01-03', knots });
+  assert.deepEqual(chained, whole.account);
+  assert.deepEqual(chainedEvents, whole.events);
+});
+
+test('checkAtPrice: throws on a non-finite price', () => {
+  const acct = createAccount({ cash: 100000 });
+  assert.throws(() => checkAtPrice(acct, { date: '2024-01-03', price: NaN, knotIndex: 0 }), /finite number/);
+});
+
+test('checkAtPrice: no-op (empty events, unchanged positions) when equity already clears maintenance', () => {
+  let acct = createAccount({ cash: 800000 });
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TX', side: 1, lots: 1, price: 17000 }));
+  const { account: after, events } = checkAtPrice(acct, { date: '2024-01-03', price: 17000, knotIndex: 0 });
+  assert.deepEqual(events, []);
+  assert.equal(after.positions.length, 1);
+});
+
+// ---------------------------------------------------------------------
+// M4 public-API additions — equityOf/unrealizedPL/positionsInitialReq/
+// positionsMaintenanceReq/pickLiquidationTarget are now exported through
+// the barrel (src/game no longer re-derives these formulas itself).
+// ---------------------------------------------------------------------
+test('public API: equityOf/unrealizedPL/positionsInitialReq/positionsMaintenanceReq match hand-computed figures', () => {
+  let acct = createAccount({ cash: 500000 });
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TX', side: 1, lots: 1, price: 17000 }));
+  const pos = acct.positions[0];
+
+  assert.equal(unrealizedPL(pos, 17100), 20000); // +100pt * 200
+  assert.equal(equityOf(acct, 17100), acct.cash + 20000);
+  assert.equal(positionsInitialReq(acct.positions, 17100), computeMargin(17100, 'TX').initial);
+  assert.equal(positionsMaintenanceReq(acct.positions, 17100), computeMargin(17100, 'TX').maintenance);
+});
+
+test('public API: pickLiquidationTarget picks the worst per-lot loser (mirrors checkIntraday ranking)', () => {
+  let acct = createAccount({ cash: 800000 });
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TX', side: 1, lots: 1, price: 17000 }));
+  ({ account: acct } = open(acct, { date: '2024-01-02', product: 'TMF', side: 1, lots: 25, price: 17000 }));
+  const target = pickLiquidationTarget(acct.positions, 16000);
+  assert.equal(target.product, 'TX');
 });
