@@ -1,0 +1,137 @@
+[
+  {
+    "run_started": "2026-08-01T23:42:49",
+    "run_finished": "2026-08-01T23:43:52",
+    "months_requested": [
+      "2020-01"
+    ],
+    "force": false,
+    "max_rounds": 3,
+    "stats": {
+      "generated": 3,
+      "blacklist_hits": 0,
+      "llm_flags": 0,
+      "regenerated": 0,
+      "rejected": 0,
+      "final_pass": 3,
+      "rounds_used": 1,
+      "months_processed": 1,
+      "months_skipped": 0
+    }
+  },
+  {
+    "run_started": "2026-08-01T23:44:22",
+    "run_finished": "2026-08-02T00:08:48",
+    "months_requested": [
+      "2020-01",
+      "2020-02",
+      "2020-03",
+      "2020-04",
+      "2020-05",
+      "2020-06",
+      "2022-01",
+      "2022-02",
+      "2022-03",
+      "2022-04",
+      "2022-05",
+      "2022-06",
+      "2022-07",
+      "2022-08",
+      "2022-09",
+      "2022-10",
+      "2017-03",
+      "2017-04",
+      "2017-05",
+      "2017-06",
+      "2017-07",
+      "2017-08",
+      "2024-05",
+      "2024-06",
+      "2024-07",
+      "2024-08",
+      "2024-09",
+      "2024-10"
+    ],
+    "force": false,
+    "max_rounds": 3,
+    "stats": {
+      "generated": 81,
+      "blacklist_hits": 4,
+      "llm_flags": 1,
+      "regenerated": 5,
+      "rejected": 0,
+      "final_pass": 81,
+      "rounds_used": 3,
+      "months_processed": 27,
+      "months_skipped": 1
+    }
+  },
+  {
+    "run_started": "2026-08-02T00:17:39",
+    "run_finished": "2026-08-02T00:17:39",
+    "note": "獨立最終複審（tools/check_events.py 全量重跑）發現 2022-02-3 洩漏長榮減資（實際發生於2022-03-15）之後見之明資訊，屬生成迴圈內複審漏網（該卡首輪 round 1 即通過黑名單+LLM複審，未觸發同批次重生成，因LLM複審具隨機性）。已手動呼叫 regenerate_single_card 重生成並過黑名單+LLM複審雙重確認後替換，不計入原 run 統計，此處另立一筆記錄。",
+    "card_id": "2022-02-3",
+    "action": "manual_regenerate_after_independent_recheck"
+  },
+  {
+    "run_started": "2026-08-02T00:22:57",
+    "run_finished": "2026-08-02T00:22:57",
+    "note": "獨立最終複審第二輪發現 2020-06-2 洩漏6月9日台積電股東會劉德音發言內容（月初視角不應得知），已手動regenerate並過黑名單+LLM複審雙重確認後替換。",
+    "card_id": "2020-06-2",
+    "action": "manual_regenerate_after_independent_recheck"
+  },
+  {
+    "run_started": "2026-08-02T00:28:45",
+    "run_finished": "2026-08-02T00:28:45",
+    "note": "獨立最終複審第三輪發現 2022-06-1 洩漏6月10日才公布的5月CPI數據（8.6%），已手動regenerate並過黑名單+LLM複審雙重確認後替換。",
+    "card_id": "2022-06-1",
+    "action": "manual_regenerate_after_independent_recheck"
+  },
+  {
+    "run_started": "2026-08-02T00:34:18",
+    "run_finished": "2026-08-02T00:34:18",
+    "months_requested": [
+      "2020-01",
+      "2020-02",
+      "2020-03",
+      "2020-04",
+      "2020-05",
+      "2020-06",
+      "2022-01",
+      "2022-02",
+      "2022-03",
+      "2022-04",
+      "2022-05",
+      "2022-06",
+      "2022-07",
+      "2022-08",
+      "2022-09",
+      "2022-10",
+      "2017-03",
+      "2017-04",
+      "2017-05",
+      "2017-06",
+      "2017-07",
+      "2017-08",
+      "2024-05",
+      "2024-06",
+      "2024-07",
+      "2024-08",
+      "2024-09",
+      "2024-10"
+    ],
+    "force": false,
+    "max_rounds": 3,
+    "stats": {
+      "generated": 0,
+      "blacklist_hits": 0,
+      "llm_flags": 0,
+      "regenerated": 0,
+      "rejected": 0,
+      "final_pass": 0,
+      "rounds_used": 0,
+      "months_processed": 0,
+      "months_skipped": 28
+    }
+  }
+]
