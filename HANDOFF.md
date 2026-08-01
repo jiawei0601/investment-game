@@ -2,22 +2,28 @@
 
 > 兩個 agent 交接的唯一現況真相。離開前更新，接手前先讀。
 
-- 最後更新：24f521f (pivot)
+- 最後更新：e682c43 (M6試產) / 2026-08-02
 - 目前任務 / 目標：投資行為訓練遊戲（自用，台指期貨版）。用真實市場數據模擬「當下的你」，診斷「說的」與「做的」之間的落差；不是預測訓練器、回測器、公開娛樂遊戲。規格見 `docs/SPEC.md`（唯一真相源，v2.0，狀態：封版，未開工）。
 - 已完成：
   - 規格經 grill-me 完整逼問收斂並封版於 `docs/SPEC.md`（v1.0，美股版）。
   - repo scaffold：`docs/adr/0002`~`0006` 五條 ADR、`AGENTS.md` 四要素填完、`docs/backlog/M1`~`M8` 八個里程碑檔案、`HANDOFF.md`。
   - **2026-08-01 轉向台指期（ADR 0007），SPEC v2.0 封版**：使用者裁定整案從美股 44 檔月K骨架版轉向台指期貨單一標的日K骨架＋生成日內版。已完成全面傳播：新增 ADR 0007 記錄轉向裁決；ADR 0002/0003/0005/0006 標記「已修訂（見 0007）」並加檔頭指引、ADR 0004（地雷股）標記「已廢止（Superseded by 0007）」；`docs/backlog/M1`~`M8` 全數依 SPEC v2.0 §10 重寫；`AGENTS.md` 種子/成交判定/測試慣例段同步改版；本檔更新。
   - **M1 資料管線完成（2026-08-01，sonnet 實作＋fresh haiku 獨立抽查通過）**：`data/daily/TX.json`（近月連續日K 4,062 筆，2010-01-04~2026-07-31，對照 TAIEX 交易日曆 0 缺日）、`TX-rolls.json`（199 次 roll，兩種拼接法不一致率 2.09% < 3% 門檻）、`data/chips.json`（三大法人 1,986 筆）、`data/macro.json`（重貼現率/CPI YoY/失業率/FEDFUNDS，2010-01 起）、`tools/fetch_m1.py`＋`validate_m1.py`（可重跑，validate 全綠）。
-  - 尚未寫任何遊戲程式碼（M2 起）。
-- 進行中（做到哪一步）：無。
+  - **M2 生成引擎完成（2026-08-02，b9a33c2+6d9067b）**：`src/engine/`（cyrb128+sfc32 種子、布朗橋 H/L 條件分佈加權錨點、縮σ重抽 fallback、子步影線）；`generateIntraday` 回傳 `{bars, knots}`——**觸價/強平判定必須用 301 點 knots，不能用 bar h/l**（ADR 0008、SPEC §1/§4）。經 opus 複核（修掉均勻錨點的假掃損偏差）＋GLM 複核（退化日邊界加固）兩輪收斂，39 測試綠含 4,062 天全資料集掃描。
+  - **M3 保證金引擎完成（2026-08-02，6d9067b）**：`src/margin/`（不可變帳務、三商品、洗價/追繳/盤中強平/轉倉/費稅）。強平＝每口虧損最大優先（平手乘數序）；轉倉必然執行＋轉後追繳；入力 Number.isFinite 防靜默停用。opus 窄審＋GLM 全審收斂，31 測試綠。注意：markToMarket 只發 margin_call 事件，**次日砍倉執行者在 M4 會話層**。
+  - **M6 試產批完成（2026-08-02，e682c43）**：四關 28 個月 84 張全過三道檢查；全量 ~600 張已放行背景生成中（外包 NIM/DeepSeek，預估 6-7 小時，收斂後產 `data/events/_review_sample_30.md` 待使用者人工複核 30 張）。
+  - **TAIFEX 官方資料線完成（未 commit，見下）**：官方 vs FinMind 4,062 天 100% 一致；1998-2009 備用序列 `TX-pre2010.json`；settle 對照表 `_tx_settle_patch.json` 100% 覆蓋。
+- 進行中（做到哪一步）：
+  - **M4 行為系統＋遊戲會話層**（sonnet 背景實作中）：作戰計畫/矛盾偵測/違背比對/行為分＋session 狀態機（advanceDay、追繳執行者、月入金、衝擊事件、指令佇列）。
+  - **M6 全量生成**（外包管道背景）。
+  - **⚠️ 等使用者確認「套用 settle」**：`python tools/apply_settle_patch.py` 把 settle 欄寫進 TX.json 被權限分類器閘門擋下，需使用者親口確認；連帶 TAIFEX 線產出（backfill/apply/crosscheck 腳本、TX-pre2010、patch 檔）尚未 commit。M4 的 markToMarket 暫以 close fallback（誤差中位數 1 點）。
 - 已知資料缺陷（詳見 `tools/README.md`）：
-  - **chips.json 只從 2018-06-05 起**——FinMind 該資料集起始日即如此，非抓取遺漏。2010-2018 劇本（平淡關 2017 含在內）將無籌碼資訊。若要補齊，TAIFEX 官網有 2007-07 起的三大法人 CSV 可另建管線（未做，列為可選任務）。
+  - **chips.json 只從 2018-06-05 起**——免費回補管道已全數查證不可行（勿重查，見 README），付費申購 NT$153,000＋禁散布授權，已決定不買。2017 平淡關無籌碼。
   - 台灣總經走央行 OpenData（BIG5）＋主計總處 XML（需補憑證鏈，解法沿用 tw-stock-db）；FinMind 無 CPI/失業率資料集。
 - 下一步：
-  - **M6 事件卡管線**（`docs/backlog/M6-event-card-pipeline.md`）：約 600 張事件卡生成＋嚴格檢查（台灣市場脈絡），無依賴可開工。
-  - **M2 生成引擎**（`docs/backlog/M2-generation-engine.md`）：M1 已完成，依賴已解除，可開工；需先建測試框架。
-  - （可選）chips 2010-2018 補齊管線（TAIFEX 官網 CSV）。
+  - M4 完成後：驗證（GLM＋必要時 opus 窄審）→ commit → 派 M5（UI）與 M7（戰報）並行 → M8（複盤 skill）。
+  - M6 全量收斂後：使用者人工複核 30 張 → commit。
+  - settle 確認後：apply → validate 全綠 → commit TAIFEX 線。
   - M2（生成引擎）依賴 M1；M3（保證金引擎，本版最大工程）依賴 M2；M4（行為系統）依賴 M3；M5（UI）依賴 M2+M3+M4；M7（戰報與檔案）依賴 M3+M4；M8（複盤 skill）依賴 M7。依賴序完整列表見各 backlog 檔案「依賴」欄。
 - 關鍵決策 + 為什麼：見 `docs/SPEC.md` §9「決策互鎖」與七條 ADR：
   - ADR 0002（已修訂，見 0007）：日K真實骨架＋種子化布朗橋生成日內，只有生成層才能讓「重玩換種子＝方向已知、執行未知」成立；共同市場因子機制因單一標的已移除。
