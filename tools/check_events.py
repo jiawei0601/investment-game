@@ -17,6 +17,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -130,19 +131,59 @@ def call_llm(prompt: str, system: str, model_script: str = "ask-nim.py") -> str:
     return proc.stdout.decode("utf-8", "replace")
 
 
-def llm_review_batch(month: str, cards: list[dict], use_fallback: bool = False) -> dict[str, dict]:
+# ---------------------------------------------------------------------------
+# 雙管道容錯：NIM 主力 -> DeepSeek 備援，各自可重試；連續失敗達上限就中止整個
+# 執行（不空轉），由呼叫方（gen_events.py 的批次迴圈）捕捉 TooManyFailures 停下回報。
+# ---------------------------------------------------------------------------
+class LLMCallFailure(RuntimeError):
+    """單次呼叫：NIM 與 DeepSeek 都失敗（含各自重試後）。"""
+
+
+class TooManyFailures(LLMCallFailure):
+    """連續 MAX_CONSECUTIVE_FAILURES 次呼叫都雙管道失敗，呼叫方應立即停止、不要繼續空轉。"""
+
+
+MAX_CONSECUTIVE_FAILURES = 5
+_consecutive_failures = 0
+
+
+def call_llm_dual(
+    prompt: str,
+    system: str,
+    retries_per_channel: int = 1,
+    backoff_sec: float = 5.0,
+) -> str:
+    """依序嘗試 NIM -> DeepSeek，每個管道最多嘗試 retries_per_channel+1 次（含重試間隔）。
+    兩管道皆失敗時累計「連續失敗次數」，達 MAX_CONSECUTIVE_FAILURES 就拋 TooManyFailures；
+    未達上限則拋 LLMCallFailure（呼叫方可視情況跳過本次、繼續下一項）。任何一次成功即歸零計數。
+    """
+    global _consecutive_failures
+    last_err: Exception | None = None
+    for script in ("ask-nim.py", "ask-deepseek.py"):
+        for attempt in range(retries_per_channel + 1):
+            try:
+                result = call_llm(prompt, system, script)
+                _consecutive_failures = 0
+                return result
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                if attempt < retries_per_channel:
+                    time.sleep(backoff_sec)
+    _consecutive_failures += 1
+    msg = f"NIM 與 DeepSeek 皆失敗（連續第 {_consecutive_failures} 次）：{last_err}"
+    if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+        raise TooManyFailures(
+            f"連續 {_consecutive_failures} 次呼叫兩管道皆失敗，達上限 {MAX_CONSECUTIVE_FAILURES}，停止執行。最後錯誤：{last_err}"
+        )
+    raise LLMCallFailure(msg)
+
+
+def llm_review_batch(month: str, cards: list[dict]) -> dict[str, dict]:
     """回傳 {card_id: {"flagged": bool, "reason": str}}。"""
     if not cards:
         return {}
     prompt = build_review_prompt(month, cards)
-    script = "ask-deepseek.py" if use_fallback else "ask-nim.py"
-    try:
-        raw = call_llm(prompt, REVIEW_SYSTEM, script)
-    except Exception as e:
-        if not use_fallback:
-            raw = call_llm(prompt, REVIEW_SYSTEM, "ask-deepseek.py")
-        else:
-            raise
+    raw = call_llm_dual(prompt, REVIEW_SYSTEM)
     json_text = _extract_json(raw)
     try:
         parsed = json.loads(json_text)
@@ -193,6 +234,8 @@ def scan(years: list[int] | None, run_llm: bool) -> int:
             if run_llm and cards:
                 try:
                     verdicts = llm_review_batch(month, cards)
+                except TooManyFailures:
+                    raise
                 except Exception as e:
                     print(f"[ERROR] {month} LLM 複審失敗：{e}")
                     continue
@@ -216,7 +259,11 @@ def main() -> int:
     parser.add_argument("--no-llm", action="store_true", help="只跑黑名單比對，不打 LLM 複審")
     args = parser.parse_args()
     years = [args.year] if args.year else None
-    return scan(years, run_llm=not args.no_llm)
+    try:
+        return scan(years, run_llm=not args.no_llm)
+    except TooManyFailures as e:
+        print(f"[ABORT] {e}")
+        return 2
 
 
 if __name__ == "__main__":

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""M6 事件卡生成管線 — 試產批（四個劇本關卡涵蓋的 28 個月）。
+"""M6 事件卡生成管線 — 全量批（2010-01 ~ 2026-07，約 600 張）。
 
 用法：
-    python tools/gen_events.py                       # 生成試產批預設 28 個月，已存在月份自動跳過（冪等）
+    python tools/gen_events.py                          # 生成試產批預設 28 個月，已存在月份自動跳過（冪等）
     python tools/gen_events.py --months 2020-01,2020-02
-    python tools/gen_events.py --force                # 忽略已存在，強制重生成指定（或預設）月份
-    python tools/gen_events.py --rounds 3              # 檢查不過重生成的最大輪數（預設 3，對應驗收條件）
+    python tools/gen_events.py --range 2010-01:2011-12   # 生成連續月份區間（全量批分批用）
+    python tools/gen_events.py --force                   # 忽略已存在，強制重生成指定（或預設）月份
+    python tools/gen_events.py --rounds 3                 # 每月檢查不過重生成的最大輪數（預設 3）
+    python tools/gen_events.py --recheck-all --rounds 5   # 對現有全部卡片獨立重掃+修正，直到收斂或達輪數上限
+    python tools/gen_events.py --sample-review 30 --seed 42
+                                                           # 跨年份分層隨機抽樣寫入 data/events/_review_sample_30.md
 
 每月流程：
     1. 呼叫 LLM 生成該月 2-3 張事件卡（JSON）。
@@ -14,24 +18,29 @@
     4. 仍不過的卡寫入 data/events/_rejected.json 並記原因，不進入最終月份卡池。
 
 輸出：
-    data/events/YYYY.json      按年彙整，{"year": 2020, "months": {"2020-01": [cards...]}}
-    data/events/_rejected.json 淘汰卡與原因（累加式，即使沒有淘汰也會被寫入為空陣列，證明跑過）
-    data/events/_gen_log.json  生成與複審過程紀錄（可追溯），每次執行附加一筆 run 記錄
+    data/events/YYYY.json           按年彙整，{"year": 2020, "months": {"2020-01": [cards...]}}
+    data/events/_rejected.json      淘汰卡與原因（累加式，即使沒有淘汰也會被寫入為空陣列，證明跑過）
+    data/events/_gen_log.json       生成與複審過程紀錄（可追溯），每次執行附加一筆 run 記錄
+    data/events/_review_sample_30.md 給使用者人工複核用的抽樣（--sample-review 產生，AI 不可自行核銷此驗收項）
 
-外包管道：優先 tools/ask-nim.py（NIM，DeepSeek v4 模型），失敗時退回 tools/ask-deepseek.py。
+外包管道：優先 tools/ask-nim.py（NIM，DeepSeek v4 模型），失敗時退回 tools/ask-deepseek.py，
+兩管道皆失敗且連續達 5 次會中止整個執行（見 check_events.py 的 TooManyFailures），不空轉。
 """
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import json
+import random
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_events import (  # noqa: E402
     BLACKLIST,
-    call_llm,
+    LLMCallFailure,
+    TooManyFailures,
+    call_llm_dual,
     check_card_blacklist,
     llm_review_batch,
     _extract_json,
@@ -143,10 +152,7 @@ def build_single_regen_prompt(month: str, category: str, old_card: dict, reason:
 
 def generate_month_cards(month: str, n_cards: int = 3) -> list[dict]:
     prompt = build_gen_prompt(month, n_cards)
-    try:
-        raw = call_llm(prompt, GEN_SYSTEM, "ask-nim.py")
-    except Exception:
-        raw = call_llm(prompt, GEN_SYSTEM, "ask-deepseek.py")
+    raw = call_llm_dual(prompt, GEN_SYSTEM)
     parsed = json.loads(_extract_json(raw))
     cards = parsed.get("cards", [])
     # 補正 id：若模型沒照格式給，強制重編號避免衝突
@@ -163,10 +169,7 @@ def generate_month_cards(month: str, n_cards: int = 3) -> list[dict]:
 def regenerate_single_card(month: str, old_card: dict, reason: str) -> dict:
     category = old_card.get("category", "tw_market")
     prompt = build_single_regen_prompt(month, category, old_card, reason)
-    try:
-        raw = call_llm(prompt, GEN_SYSTEM, "ask-nim.py")
-    except Exception:
-        raw = call_llm(prompt, GEN_SYSTEM, "ask-deepseek.py")
+    raw = call_llm_dual(prompt, GEN_SYSTEM)
     parsed = json.loads(_extract_json(raw))
     parsed.setdefault("id", old_card.get("id"))
     return parsed
@@ -241,8 +244,10 @@ def process_month(month: str, max_rounds: int, stats: dict) -> list[dict]:
         #    這裡選擇仍然送審，方便完整記錄該卡所有問題）
         try:
             verdicts = llm_review_batch(month, cards)
-        except Exception as e:
-            print(f"  [warn] {month} round {round_no} LLM 複審失敗，視為全數需人工複核：{e}")
+        except TooManyFailures:
+            raise  # 連續失敗達上限，交給呼叫方（main 的月份迴圈）停止整個執行
+        except LLMCallFailure as e:
+            print(f"  [warn] {month} round {round_no} LLM 複審失敗（未達連續失敗上限），本輪僅靠黑名單比對：{e}")
             verdicts = {}
         llm_fail = {cid: v["reason"] for cid, v in verdicts.items() if v["flagged"]}
         stats["llm_flags"] += len(llm_fail)
@@ -282,6 +287,8 @@ def process_month(month: str, max_rounds: int, stats: dict) -> list[dict]:
                     new_c = regenerate_single_card(month, c, fail_reasons[c["id"]])
                     stats["regenerated"] += 1
                     new_cards.append(new_c)
+                except TooManyFailures:
+                    raise
                 except Exception as e:
                     print(f"  [error] 重生成 {c['id']} 失敗：{e}，本輪保留原卡待下輪")
                     new_cards.append(c)
@@ -300,6 +307,182 @@ def process_month(month: str, max_rounds: int, stats: dict) -> list[dict]:
     return cards
 
 
+def parse_range(spec: str) -> list[str]:
+    """'2010-01:2011-12' -> ['2010-01', ..., '2011-12']"""
+    start, end = spec.split(":")
+    return months_in_range(start.strip(), end.strip())
+
+
+# ---------------------------------------------------------------------------
+# 全量重掃收斂：對 data/events/ 下所有現有卡片做獨立黑名單+LLM複審，有問題就
+# 重生成，重複直到「連續一輪 0 命中 0 打回」或達 max_rounds 上限（不自動淘汰
+# 卡片——這是跨月一致性複查，不是單月生成迴圈，達上限仍未收斂則回報待人工介入）。
+# ---------------------------------------------------------------------------
+
+def recheck_all(max_rounds: int) -> int:
+    years = sorted(
+        int(p.stem) for p in EVENTS_DIR.glob("*.json") if p.stem.isdigit()
+    )
+    if not years:
+        print("[recheck] data/events/ 下沒有任何年度檔案，無事可做")
+        return 0
+
+    for round_no in range(1, max_rounds + 1):
+        print(f"\n[recheck round {round_no}] 掃描 {len(years)} 個年份...", flush=True)
+        total_hits = 0
+        still_flagged = []
+        for year in years:
+            data = load_year_file(year)
+            months = data.get("months", {})
+            year_changed = False
+            for month, cards in sorted(months.items()):
+                fail_reasons = {}
+                for c in cards:
+                    hits = check_card_blacklist(c)
+                    if hits:
+                        fail_reasons[c["id"]] = f"黑名單命中：{hits}"
+                try:
+                    verdicts = llm_review_batch(month, cards)
+                except TooManyFailures:
+                    raise
+                except LLMCallFailure as e:
+                    print(f"  [warn] {month} 複審失敗（未達連續失敗上限），本輪僅靠黑名單：{e}")
+                    verdicts = {}
+                for cid, v in verdicts.items():
+                    if v.get("flagged"):
+                        fail_reasons[cid] = (
+                            fail_reasons.get(cid, "") + f"；LLM複審：{v['reason']}"
+                        ).strip("；")
+
+                if not fail_reasons:
+                    continue
+
+                total_hits += len(fail_reasons)
+                print(f"  [fix] {month}: {list(fail_reasons)}")
+                new_cards = []
+                for c in cards:
+                    if c["id"] in fail_reasons:
+                        try:
+                            nc = regenerate_single_card(month, c, fail_reasons[c["id"]])
+                            new_cards.append(nc)
+                        except TooManyFailures:
+                            raise
+                        except Exception as e:
+                            print(f"    [error] 重生成 {c['id']} 失敗，保留原卡：{e}")
+                            new_cards.append(c)
+                            still_flagged.append((month, c["id"], fail_reasons[c["id"]]))
+                    else:
+                        new_cards.append(c)
+                months[month] = new_cards
+                year_changed = True
+            if year_changed:
+                data["months"] = months
+                save_year_file(year, data)
+
+        append_log({
+            "phase": "recheck_all",
+            "round": round_no,
+            "timestamp": dt.datetime.now().isoformat(timespec="seconds"),
+            "total_hits_this_round": total_hits,
+            "unresolved_after_regen": still_flagged,
+        })
+
+        if total_hits == 0:
+            print(f"\n[recheck] round {round_no}：連續一輪 0 命中 0 打回，收斂完成。")
+            return 0
+
+    print(f"\n[recheck] 已達 {max_rounds} 輪上限仍未完全收斂，需人工介入，"
+          f"詳見 data/events/_gen_log.json 最後幾筆 phase=recheck_all 紀錄。")
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# 30 張人工複核抽樣（跨年份分層、種子可重現）——只產出待複核清單，
+# AI 不可自行核銷 M6 backlog「30 張人工複核」這條驗收項。
+# ---------------------------------------------------------------------------
+
+def write_review_sample(n: int, seed: int) -> Path:
+    years = sorted(
+        int(p.stem) for p in EVENTS_DIR.glob("*.json") if p.stem.isdigit()
+    )
+    pool_by_year: dict[int, list[tuple[str, dict]]] = {}
+    for year in years:
+        data = load_year_file(year)
+        items = []
+        for month, cards in sorted(data.get("months", {}).items()):
+            for c in cards:
+                items.append((month, c))
+        if items:
+            pool_by_year[year] = items
+
+    eligible_years = sorted(pool_by_year)
+    rng = random.Random(seed)
+
+    quotas = {y: 1 for y in eligible_years}
+    remaining = n - len(eligible_years)
+    order = eligible_years[:]
+    rng.shuffle(order)
+    i = 0
+    safety = 0
+    while remaining > 0 and eligible_years and safety < 100000:
+        y = order[i % len(order)]
+        if quotas[y] < len(pool_by_year[y]):
+            quotas[y] += 1
+            remaining -= 1
+        i += 1
+        safety += 1
+
+    selected: list[tuple[int, str, dict]] = []
+    for y in eligible_years:
+        k = min(quotas[y], len(pool_by_year[y]))
+        picks = rng.sample(pool_by_year[y], k)
+        for month, card in picks:
+            selected.append((y, month, card))
+    selected.sort(key=lambda t: (t[0], t[1], str(t[2].get("id", ""))))
+
+    lines = [
+        f"# M6 事件卡人工複核抽樣（{len(selected)} 張）",
+        "",
+        f"- 抽樣種子（seed）：`{seed}`",
+        f"- 抽樣方式：跨年份分層——涵蓋 {len(eligible_years)} 個年份，每年至少 1 張，"
+        f"其餘名額以種子洗牌年份順序後輪流分配；年內用 `random.Random(seed).sample()` 無放回抽取。"
+        f"用同一 seed 重跑 `python tools/gen_events.py --sample-review {n} --seed {seed}` 可重現這份清單"
+        f"（前提是 data/events/ 底層資料未變動）。",
+        "",
+        "**本檔案僅供人工複核使用，AI 不可自行核銷 M6 backlog 的「30 張人工複核」驗收項**——"
+        "複核人、複核日期、複核結果、有無打回需由使用者填寫。",
+        "",
+        "## 複核紀錄（使用者填寫）",
+        "",
+        "- 複核人：____",
+        "- 複核日期：____",
+        "- 複核張數：____ / " + str(len(selected)),
+        "- 打回張數與理由：____",
+        "",
+        "## 抽樣卡片",
+        "",
+    ]
+    for y, month, card in selected:
+        lines.append(f"### {month} — {card.get('id')}（{card.get('category')}）")
+        lines.append("")
+        lines.append(f"**{card.get('title', '')}**")
+        lines.append("")
+        lines.append(card.get("body", ""))
+        lines.append("")
+        lines.append(f"*source_hint：{card.get('source_hint', '')}*")
+        lines.append("")
+        lines.append("- [ ] 通過")
+        lines.append("- [ ] 打回（理由：____）")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    path = EVENTS_DIR / "_review_sample_30.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"[sample] 已寫入 {path}（{len(selected)} 張，跨 {len(eligible_years)} 個年份，種子={seed}）")
+    return path
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -308,31 +491,73 @@ def main() -> int:
             pass
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--months", default=None, help="逗號分隔月份清單，如 2020-01,2020-02；預設=試產批 28 個月")
+    parser.add_argument("--range", dest="range_spec", default=None,
+                         help="連續月份區間，如 2010-01:2011-12（全量批分批用，含頭尾）")
     parser.add_argument("--force", action="store_true", help="忽略已存在的月份，強制重生成")
     parser.add_argument("--rounds", type=int, default=3, help="檢查不過重生成的最大輪數（預設 3）")
     parser.add_argument("--n-cards", type=int, default=3, help="每月生成張數上限（實際 2-3 張，模型可能少給）")
+    parser.add_argument("--recheck-all", action="store_true",
+                         help="不生成新月份，改對 data/events/ 現有全部卡片獨立重掃+修正，直到收斂")
+    parser.add_argument("--sample-review", type=int, default=None, metavar="N",
+                         help="寫出 N 張跨年份分層抽樣到 data/events/_review_sample_30.md（配合 --seed）")
+    parser.add_argument("--seed", type=int, default=42, help="--sample-review 用的隨機種子（預設 42）")
     args = parser.parse_args()
 
     EVENTS_DIR.mkdir(parents=True, exist_ok=True)
     if not REJECTED_PATH.exists():
         save_rejected([])  # 保證 _rejected.json 一定存在，即使沒有淘汰也佐證跑過
 
-    months = args.months.split(",") if args.months else default_trial_months()
+    if args.sample_review is not None:
+        write_review_sample(args.sample_review, args.seed)
+        return 0
+
+    if args.recheck_all:
+        try:
+            return recheck_all(args.rounds)
+        except TooManyFailures as e:
+            print(f"\n[ABORT] {e}")
+            append_log({
+                "phase": "recheck_all_abort",
+                "timestamp": dt.datetime.now().isoformat(timespec="seconds"),
+                "error": str(e),
+            })
+            print("已達連續失敗上限，停止執行，不空轉。重跑 --recheck-all 會從頭重掃"
+                  "（已修正的卡片不受影響，只有還沒掃到/還沒修好的部分會重試）。")
+            return 3
+
+    if args.range_spec:
+        months = parse_range(args.range_spec)
+    elif args.months:
+        months = args.months.split(",")
+    else:
+        months = default_trial_months()
 
     stats = {
         "generated": 0, "blacklist_hits": 0, "llm_flags": 0,
         "regenerated": 0, "rejected": 0, "final_pass": 0, "rounds_used": 0,
-        "months_processed": 0, "months_skipped": 0,
+        "months_processed": 0, "months_skipped": 0, "months_failed": [],
     }
 
     run_started = dt.datetime.now().isoformat(timespec="seconds")
+    aborted = False
+    abort_reason = None
 
     for month in months:
         if not args.force and month_already_done(month):
             print(f"[skip] {month} 已存在，跳過（冪等；用 --force 強制重生成）")
             stats["months_skipped"] += 1
             continue
-        cards = process_month(month, args.rounds, stats)
+        try:
+            cards = process_month(month, args.rounds, stats)
+        except TooManyFailures as e:
+            print(f"\n[ABORT] {month} 處理中：{e}")
+            aborted = True
+            abort_reason = str(e)
+            break
+        except Exception as e:
+            print(f"[error] {month} 生成失敗（單次錯誤，非連續失敗上限，跳過此月，之後可重跑補上）：{e}")
+            stats["months_failed"].append(month)
+            continue
         stats["months_processed"] += 1
 
         year = int(month[:4])
@@ -344,14 +569,21 @@ def main() -> int:
         "run_started": run_started,
         "run_finished": dt.datetime.now().isoformat(timespec="seconds"),
         "months_requested": months,
+        "range": args.range_spec,
         "force": args.force,
         "max_rounds": args.rounds,
         "stats": stats,
+        "aborted": aborted,
+        "abort_reason": abort_reason,
     })
 
     print("\n=== 統計 ===")
     for k, v in stats.items():
         print(f"  {k}: {v}")
+    if aborted:
+        print("\n已達連續失敗上限，停止執行，不空轉。已完成月份已寫入，重跑同一個 --range 會自動跳過"
+              "已完成月份、從中斷點續跑。")
+        return 4
     return 0
 
 
