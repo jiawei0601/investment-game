@@ -146,8 +146,15 @@ short_open_interest_balance_volume`（FinMind 原始欄位），**不是**當日
 1. **`chips.json` 起始日 2018-06-05**，晚於 SPEC 期望的 2010-01。已實測確認
    FinMind `TaiwanFuturesInstitutionalInvestors` 資料集本身即從此日起才提供資料（無論
    `start_date` 參數填多早，回傳資料都是從 2018-06-05 開始），非本管線抓取邏輯缺漏。
-   2010-01 ~ 2018-06 期間若需要籌碼資訊，需另尋來源（TAIFEX 官網歷史下載或付費資料商），
-   本輪未處理。
+   2010-01 ~ 2018-06 期間若需要籌碼資訊，需另尋來源。
+   **2026-08-01 已完整調查免費回補管道，全數不可行，勿重跑這輪調查**：
+   - TAIFEX 官網查詢（`futContractsDate`）：僅提供「交易日前三年」滾動範圍，頁面明文歷史資料需付費申購（E-Data Shop 公開資料申購表，人工線上申請、非腳本可完成）。
+   - data.gov.tw 鏡像（dataset 11596）：僅當日快照，非歷史累積。
+   - openapi.taifex.com.tw 對應端點：不接受日期參數，僅當日快照。
+   - FinMind `TaiwanFuturesOpenInterestLargeTraders`（大額交易人，語意亦不同）：需 Sponsor 付費層。
+   剩餘選項＝TAIFEX E-Data Shop 或 TEJ/CMoney 付費申購後人工餵入（schema 已固定，屆時寫一支合併腳本即可）。
+   另：本輪已用 TAIFEX 官網 2026-07-31 實測數值逐欄核對，確認 chips.json 三欄位語意＝
+   「未平倉餘額多空淨額（口數）」（自營 -2,377／投信 85,325 完全吻合），非交易口數淨額。
 2. **近月拼接與交叉檢核有 2.09%（85/4062 天）不一致**，列於
    `data/_tx_cross_check_report.json`，多數落在每月結算週前後（近月/次近月合約成交量
    交叉的正常現象），少數為 `front_month_missing`（極早期資料某些月份合約掛牌天數較短）。
