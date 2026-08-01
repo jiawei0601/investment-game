@@ -1,0 +1,1198 @@
+{
+  "rolls": [
+    {
+      "date": "2010-01-21",
+      "from_contract": "201001",
+      "to_contract": "201002",
+      "price_gap": -30.0
+    },
+    {
+      "date": "2010-02-22",
+      "from_contract": "201002",
+      "to_contract": "201003",
+      "price_gap": 189.0
+    },
+    {
+      "date": "2010-03-18",
+      "from_contract": "201003",
+      "to_contract": "201004",
+      "price_gap": -5.0
+    },
+    {
+      "date": "2010-04-22",
+      "from_contract": "201004",
+      "to_contract": "201005",
+      "price_gap": -75.0
+    },
+    {
+      "date": "2010-05-20",
+      "from_contract": "201005",
+      "to_contract": "201006",
+      "price_gap": -67.0
+    },
+    {
+      "date": "2010-06-17",
+      "from_contract": "201006",
+      "to_contract": "201007",
+      "price_gap": -79.0
+    },
+    {
+      "date": "2010-07-22",
+      "from_contract": "201007",
+      "to_contract": "201008",
+      "price_gap": -102.0
+    },
+    {
+      "date": "2010-08-19",
+      "from_contract": "201008",
+      "to_contract": "201009",
+      "price_gap": -20.0
+    },
+    {
+      "date": "2010-09-16",
+      "from_contract": "201009",
+      "to_contract": "201010",
+      "price_gap": -9.0
+    },
+    {
+      "date": "2010-10-21",
+      "from_contract": "201010",
+      "to_contract": "201011",
+      "price_gap": -40.0
+    },
+    {
+      "date": "2010-11-18",
+      "from_contract": "201011",
+      "to_contract": "201012",
+      "price_gap": 9.0
+    },
+    {
+      "date": "2010-12-16",
+      "from_contract": "201012",
+      "to_contract": "201101",
+      "price_gap": 38.0
+    },
+    {
+      "date": "2011-01-20",
+      "from_contract": "201101",
+      "to_contract": "201102",
+      "price_gap": -65.0
+    },
+    {
+      "date": "2011-02-17",
+      "from_contract": "201102",
+      "to_contract": "201103",
+      "price_gap": -68.0
+    },
+    {
+      "date": "2011-03-17",
+      "from_contract": "201103",
+      "to_contract": "201104",
+      "price_gap": -155.0
+    },
+    {
+      "date": "2011-04-21",
+      "from_contract": "201104",
+      "to_contract": "201105",
+      "price_gap": 91.0
+    },
+    {
+      "date": "2011-05-19",
+      "from_contract": "201105",
+      "to_contract": "201106",
+      "price_gap": 27.0
+    },
+    {
+      "date": "2011-06-16",
+      "from_contract": "201106",
+      "to_contract": "201107",
+      "price_gap": -280.0
+    },
+    {
+      "date": "2011-07-21",
+      "from_contract": "201107",
+      "to_contract": "201108",
+      "price_gap": -61.0
+    },
+    {
+      "date": "2011-08-18",
+      "from_contract": "201108",
+      "to_contract": "201109",
+      "price_gap": -173.0
+    },
+    {
+      "date": "2011-09-22",
+      "from_contract": "201109",
+      "to_contract": "201110",
+      "price_gap": -175.0
+    },
+    {
+      "date": "2011-10-20",
+      "from_contract": "201110",
+      "to_contract": "201111",
+      "price_gap": 26.0
+    },
+    {
+      "date": "2011-11-17",
+      "from_contract": "201111",
+      "to_contract": "201112",
+      "price_gap": -64.0
+    },
+    {
+      "date": "2011-12-22",
+      "from_contract": "201112",
+      "to_contract": "201201",
+      "price_gap": -2.0
+    },
+    {
+      "date": "2012-01-30",
+      "from_contract": "201201",
+      "to_contract": "201202",
+      "price_gap": 145.0
+    },
+    {
+      "date": "2012-02-16",
+      "from_contract": "201202",
+      "to_contract": "201203",
+      "price_gap": -38.0
+    },
+    {
+      "date": "2012-03-22",
+      "from_contract": "201203",
+      "to_contract": "201204",
+      "price_gap": 29.0
+    },
+    {
+      "date": "2012-04-19",
+      "from_contract": "201204",
+      "to_contract": "201205",
+      "price_gap": -29.0
+    },
+    {
+      "date": "2012-05-17",
+      "from_contract": "201205",
+      "to_contract": "201206",
+      "price_gap": 11.0
+    },
+    {
+      "date": "2012-06-21",
+      "from_contract": "201206",
+      "to_contract": "201207",
+      "price_gap": -151.0
+    },
+    {
+      "date": "2012-07-19",
+      "from_contract": "201207",
+      "to_contract": "201208",
+      "price_gap": -85.0
+    },
+    {
+      "date": "2012-08-16",
+      "from_contract": "201208",
+      "to_contract": "201209",
+      "price_gap": -8.0
+    },
+    {
+      "date": "2012-09-20",
+      "from_contract": "201209",
+      "to_contract": "201210",
+      "price_gap": 15.0
+    },
+    {
+      "date": "2012-10-18",
+      "from_contract": "201210",
+      "to_contract": "201211",
+      "price_gap": 7.0
+    },
+    {
+      "date": "2012-11-22",
+      "from_contract": "201211",
+      "to_contract": "201212",
+      "price_gap": 12.0
+    },
+    {
+      "date": "2012-12-20",
+      "from_contract": "201212",
+      "to_contract": "201301",
+      "price_gap": -28.0
+    },
+    {
+      "date": "2013-01-17",
+      "from_contract": "201301",
+      "to_contract": "201302",
+      "price_gap": -15.0
+    },
+    {
+      "date": "2013-02-21",
+      "from_contract": "201302",
+      "to_contract": "201303",
+      "price_gap": -36.0
+    },
+    {
+      "date": "2013-03-21",
+      "from_contract": "201303",
+      "to_contract": "201304",
+      "price_gap": 7.0
+    },
+    {
+      "date": "2013-04-18",
+      "from_contract": "201304",
+      "to_contract": "201305",
+      "price_gap": -94.0
+    },
+    {
+      "date": "2013-05-16",
+      "from_contract": "201305",
+      "to_contract": "201306",
+      "price_gap": 21.0
+    },
+    {
+      "date": "2013-06-20",
+      "from_contract": "201306",
+      "to_contract": "201307",
+      "price_gap": -224.0
+    },
+    {
+      "date": "2013-07-18",
+      "from_contract": "201307",
+      "to_contract": "201308",
+      "price_gap": -84.0
+    },
+    {
+      "date": "2013-08-22",
+      "from_contract": "201308",
+      "to_contract": "201309",
+      "price_gap": -152.0
+    },
+    {
+      "date": "2013-09-23",
+      "from_contract": "201309",
+      "to_contract": "201310",
+      "price_gap": -53.0
+    },
+    {
+      "date": "2013-10-17",
+      "from_contract": "201310",
+      "to_contract": "201311",
+      "price_gap": 35.0
+    },
+    {
+      "date": "2013-11-21",
+      "from_contract": "201311",
+      "to_contract": "201312",
+      "price_gap": -53.0
+    },
+    {
+      "date": "2013-12-19",
+      "from_contract": "201312",
+      "to_contract": "201401",
+      "price_gap": 54.0
+    },
+    {
+      "date": "2014-01-16",
+      "from_contract": "201401",
+      "to_contract": "201402",
+      "price_gap": 40.0
+    },
+    {
+      "date": "2014-02-20",
+      "from_contract": "201402",
+      "to_contract": "201403",
+      "price_gap": -27.0
+    },
+    {
+      "date": "2014-03-20",
+      "from_contract": "201403",
+      "to_contract": "201404",
+      "price_gap": -58.0
+    },
+    {
+      "date": "2014-04-17",
+      "from_contract": "201404",
+      "to_contract": "201405",
+      "price_gap": -71.0
+    },
+    {
+      "date": "2014-05-22",
+      "from_contract": "201405",
+      "to_contract": "201406",
+      "price_gap": 13.0
+    },
+    {
+      "date": "2014-06-19",
+      "from_contract": "201406",
+      "to_contract": "201407",
+      "price_gap": -115.0
+    },
+    {
+      "date": "2014-07-17",
+      "from_contract": "201407",
+      "to_contract": "201408",
+      "price_gap": -91.0
+    },
+    {
+      "date": "2014-08-21",
+      "from_contract": "201408",
+      "to_contract": "201409",
+      "price_gap": -15.0
+    },
+    {
+      "date": "2014-09-18",
+      "from_contract": "201409",
+      "to_contract": "201410",
+      "price_gap": 62.0
+    },
+    {
+      "date": "2014-10-16",
+      "from_contract": "201410",
+      "to_contract": "201411",
+      "price_gap": -63.0
+    },
+    {
+      "date": "2014-11-20",
+      "from_contract": "201411",
+      "to_contract": "201412",
+      "price_gap": 78.0
+    },
+    {
+      "date": "2014-12-18",
+      "from_contract": "201412",
+      "to_contract": "201501",
+      "price_gap": 58.0
+    },
+    {
+      "date": "2015-01-22",
+      "from_contract": "201501",
+      "to_contract": "201502",
+      "price_gap": 52.0
+    },
+    {
+      "date": "2015-02-24",
+      "from_contract": "201502",
+      "to_contract": "201503",
+      "price_gap": 89.0
+    },
+    {
+      "date": "2015-03-19",
+      "from_contract": "201503",
+      "to_contract": "201504",
+      "price_gap": 101.0
+    },
+    {
+      "date": "2015-04-16",
+      "from_contract": "201504",
+      "to_contract": "201505",
+      "price_gap": 42.0
+    },
+    {
+      "date": "2015-05-21",
+      "from_contract": "201505",
+      "to_contract": "201506",
+      "price_gap": -23.0
+    },
+    {
+      "date": "2015-06-18",
+      "from_contract": "201506",
+      "to_contract": "201507",
+      "price_gap": -138.0
+    },
+    {
+      "date": "2015-07-16",
+      "from_contract": "201507",
+      "to_contract": "201508",
+      "price_gap": -95.0
+    },
+    {
+      "date": "2015-08-20",
+      "from_contract": "201508",
+      "to_contract": "201509",
+      "price_gap": -53.0
+    },
+    {
+      "date": "2015-09-17",
+      "from_contract": "201509",
+      "to_contract": "201510",
+      "price_gap": 50.0
+    },
+    {
+      "date": "2015-10-22",
+      "from_contract": "201510",
+      "to_contract": "201511",
+      "price_gap": -29.0
+    },
+    {
+      "date": "2015-11-19",
+      "from_contract": "201511",
+      "to_contract": "201512",
+      "price_gap": 35.0
+    },
+    {
+      "date": "2015-12-17",
+      "from_contract": "201512",
+      "to_contract": "201601",
+      "price_gap": 4.0
+    },
+    {
+      "date": "2016-01-21",
+      "from_contract": "201601",
+      "to_contract": "201602",
+      "price_gap": -46.0
+    },
+    {
+      "date": "2016-02-18",
+      "from_contract": "201602",
+      "to_contract": "201603",
+      "price_gap": 78.0
+    },
+    {
+      "date": "2016-03-17",
+      "from_contract": "201603",
+      "to_contract": "201604",
+      "price_gap": 63.0
+    },
+    {
+      "date": "2016-04-21",
+      "from_contract": "201604",
+      "to_contract": "201605",
+      "price_gap": -6.0
+    },
+    {
+      "date": "2016-05-19",
+      "from_contract": "201605",
+      "to_contract": "201606",
+      "price_gap": -30.0
+    },
+    {
+      "date": "2016-06-16",
+      "from_contract": "201606",
+      "to_contract": "201607",
+      "price_gap": -191.0
+    },
+    {
+      "date": "2016-07-21",
+      "from_contract": "201607",
+      "to_contract": "201608",
+      "price_gap": -81.0
+    },
+    {
+      "date": "2016-08-18",
+      "from_contract": "201608",
+      "to_contract": "201609",
+      "price_gap": -111.0
+    },
+    {
+      "date": "2016-09-22",
+      "from_contract": "201609",
+      "to_contract": "201610",
+      "price_gap": 0.0
+    },
+    {
+      "date": "2016-10-20",
+      "from_contract": "201610",
+      "to_contract": "201611",
+      "price_gap": -11.0
+    },
+    {
+      "date": "2016-11-17",
+      "from_contract": "201611",
+      "to_contract": "201612",
+      "price_gap": -41.0
+    },
+    {
+      "date": "2016-12-22",
+      "from_contract": "201612",
+      "to_contract": "201701",
+      "price_gap": -21.0
+    },
+    {
+      "date": "2017-01-19",
+      "from_contract": "201701",
+      "to_contract": "201702",
+      "price_gap": -3.0
+    },
+    {
+      "date": "2017-02-16",
+      "from_contract": "201702",
+      "to_contract": "201703",
+      "price_gap": 19.0
+    },
+    {
+      "date": "2017-03-16",
+      "from_contract": "201703",
+      "to_contract": "201704",
+      "price_gap": 73.0
+    },
+    {
+      "date": "2017-04-20",
+      "from_contract": "201704",
+      "to_contract": "201705",
+      "price_gap": -40.0
+    },
+    {
+      "date": "2017-05-18",
+      "from_contract": "201705",
+      "to_contract": "201706",
+      "price_gap": -97.0
+    },
+    {
+      "date": "2017-06-22",
+      "from_contract": "201706",
+      "to_contract": "201707",
+      "price_gap": -171.0
+    },
+    {
+      "date": "2017-07-20",
+      "from_contract": "201707",
+      "to_contract": "201708",
+      "price_gap": -89.0
+    },
+    {
+      "date": "2017-08-17",
+      "from_contract": "201708",
+      "to_contract": "201709",
+      "price_gap": 4.0
+    },
+    {
+      "date": "2017-09-21",
+      "from_contract": "201709",
+      "to_contract": "201710",
+      "price_gap": -5.0
+    },
+    {
+      "date": "2017-10-19",
+      "from_contract": "201710",
+      "to_contract": "201711",
+      "price_gap": 21.0
+    },
+    {
+      "date": "2017-11-16",
+      "from_contract": "201711",
+      "to_contract": "201712",
+      "price_gap": -51.0
+    },
+    {
+      "date": "2017-12-21",
+      "from_contract": "201712",
+      "to_contract": "201801",
+      "price_gap": -5.0
+    },
+    {
+      "date": "2018-01-18",
+      "from_contract": "201801",
+      "to_contract": "201802",
+      "price_gap": 43.0
+    },
+    {
+      "date": "2018-02-22",
+      "from_contract": "201802",
+      "to_contract": "201803",
+      "price_gap": -59.0
+    },
+    {
+      "date": "2018-03-22",
+      "from_contract": "201803",
+      "to_contract": "201804",
+      "price_gap": -8.0
+    },
+    {
+      "date": "2018-04-19",
+      "from_contract": "201804",
+      "to_contract": "201805",
+      "price_gap": 11.0
+    },
+    {
+      "date": "2018-05-17",
+      "from_contract": "201805",
+      "to_contract": "201806",
+      "price_gap": 48.0
+    },
+    {
+      "date": "2018-06-21",
+      "from_contract": "201806",
+      "to_contract": "201807",
+      "price_gap": -211.0
+    },
+    {
+      "date": "2018-07-19",
+      "from_contract": "201807",
+      "to_contract": "201808",
+      "price_gap": -88.0
+    },
+    {
+      "date": "2018-08-16",
+      "from_contract": "201808",
+      "to_contract": "201809",
+      "price_gap": -127.0
+    },
+    {
+      "date": "2018-09-20",
+      "from_contract": "201809",
+      "to_contract": "201810",
+      "price_gap": 37.0
+    },
+    {
+      "date": "2018-10-18",
+      "from_contract": "201810",
+      "to_contract": "201811",
+      "price_gap": -70.0
+    },
+    {
+      "date": "2018-11-22",
+      "from_contract": "201811",
+      "to_contract": "201812",
+      "price_gap": 23.0
+    },
+    {
+      "date": "2018-12-20",
+      "from_contract": "201812",
+      "to_contract": "201901",
+      "price_gap": -130.0
+    },
+    {
+      "date": "2019-01-17",
+      "from_contract": "201901",
+      "to_contract": "201902",
+      "price_gap": -7.0
+    },
+    {
+      "date": "2019-02-21",
+      "from_contract": "201902",
+      "to_contract": "201903",
+      "price_gap": -1.0
+    },
+    {
+      "date": "2019-03-21",
+      "from_contract": "201903",
+      "to_contract": "201904",
+      "price_gap": -7.0
+    },
+    {
+      "date": "2019-04-18",
+      "from_contract": "201904",
+      "to_contract": "201905",
+      "price_gap": 18.0
+    },
+    {
+      "date": "2019-05-16",
+      "from_contract": "201905",
+      "to_contract": "201906",
+      "price_gap": -42.0
+    },
+    {
+      "date": "2019-06-20",
+      "from_contract": "201906",
+      "to_contract": "201907",
+      "price_gap": -195.0
+    },
+    {
+      "date": "2019-07-18",
+      "from_contract": "201907",
+      "to_contract": "201908",
+      "price_gap": -206.0
+    },
+    {
+      "date": "2019-08-22",
+      "from_contract": "201908",
+      "to_contract": "201909",
+      "price_gap": 10.0
+    },
+    {
+      "date": "2019-09-19",
+      "from_contract": "201909",
+      "to_contract": "201910",
+      "price_gap": -44.0
+    },
+    {
+      "date": "2019-10-17",
+      "from_contract": "201910",
+      "to_contract": "201911",
+      "price_gap": 3.0
+    },
+    {
+      "date": "2019-11-21",
+      "from_contract": "201911",
+      "to_contract": "201912",
+      "price_gap": -78.0
+    },
+    {
+      "date": "2019-12-19",
+      "from_contract": "201912",
+      "to_contract": "202001",
+      "price_gap": -8.0
+    },
+    {
+      "date": "2020-01-16",
+      "from_contract": "202001",
+      "to_contract": "202002",
+      "price_gap": -23.0
+    },
+    {
+      "date": "2020-02-20",
+      "from_contract": "202002",
+      "to_contract": "202003",
+      "price_gap": 60.0
+    },
+    {
+      "date": "2020-03-19",
+      "from_contract": "202003",
+      "to_contract": "202004",
+      "price_gap": -443.0
+    },
+    {
+      "date": "2020-04-16",
+      "from_contract": "202004",
+      "to_contract": "202005",
+      "price_gap": -273.0
+    },
+    {
+      "date": "2020-05-21",
+      "from_contract": "202005",
+      "to_contract": "202006",
+      "price_gap": 16.0
+    },
+    {
+      "date": "2020-06-18",
+      "from_contract": "202006",
+      "to_contract": "202007",
+      "price_gap": -149.0
+    },
+    {
+      "date": "2020-07-16",
+      "from_contract": "202007",
+      "to_contract": "202008",
+      "price_gap": -154.0
+    },
+    {
+      "date": "2020-08-20",
+      "from_contract": "202008",
+      "to_contract": "202009",
+      "price_gap": -111.0
+    },
+    {
+      "date": "2020-09-17",
+      "from_contract": "202009",
+      "to_contract": "202010",
+      "price_gap": -113.0
+    },
+    {
+      "date": "2020-10-22",
+      "from_contract": "202010",
+      "to_contract": "202011",
+      "price_gap": -131.0
+    },
+    {
+      "date": "2020-11-19",
+      "from_contract": "202011",
+      "to_contract": "202012",
+      "price_gap": -24.0
+    },
+    {
+      "date": "2020-12-17",
+      "from_contract": "202012",
+      "to_contract": "202101",
+      "price_gap": -103.0
+    },
+    {
+      "date": "2021-01-21",
+      "from_contract": "202101",
+      "to_contract": "202102",
+      "price_gap": 37.0
+    },
+    {
+      "date": "2021-02-18",
+      "from_contract": "202102",
+      "to_contract": "202103",
+      "price_gap": 48.0
+    },
+    {
+      "date": "2021-03-18",
+      "from_contract": "202103",
+      "to_contract": "202104",
+      "price_gap": 79.0
+    },
+    {
+      "date": "2021-04-22",
+      "from_contract": "202104",
+      "to_contract": "202105",
+      "price_gap": 27.0
+    },
+    {
+      "date": "2021-05-20",
+      "from_contract": "202105",
+      "to_contract": "202106",
+      "price_gap": -60.0
+    },
+    {
+      "date": "2021-06-17",
+      "from_contract": "202106",
+      "to_contract": "202107",
+      "price_gap": -275.0
+    },
+    {
+      "date": "2021-07-22",
+      "from_contract": "202107",
+      "to_contract": "202108",
+      "price_gap": 11.0
+    },
+    {
+      "date": "2021-08-19",
+      "from_contract": "202108",
+      "to_contract": "202109",
+      "price_gap": -173.0
+    },
+    {
+      "date": "2021-09-16",
+      "from_contract": "202109",
+      "to_contract": "202110",
+      "price_gap": -45.0
+    },
+    {
+      "date": "2021-10-21",
+      "from_contract": "202110",
+      "to_contract": "202111",
+      "price_gap": -3.0
+    },
+    {
+      "date": "2021-11-18",
+      "from_contract": "202111",
+      "to_contract": "202112",
+      "price_gap": 47.0
+    },
+    {
+      "date": "2021-12-16",
+      "from_contract": "202112",
+      "to_contract": "202201",
+      "price_gap": 135.0
+    },
+    {
+      "date": "2022-01-20",
+      "from_contract": "202201",
+      "to_contract": "202202",
+      "price_gap": -15.0
+    },
+    {
+      "date": "2022-02-17",
+      "from_contract": "202202",
+      "to_contract": "202203",
+      "price_gap": 62.0
+    },
+    {
+      "date": "2022-03-17",
+      "from_contract": "202203",
+      "to_contract": "202204",
+      "price_gap": 402.0
+    },
+    {
+      "date": "2022-04-21",
+      "from_contract": "202204",
+      "to_contract": "202205",
+      "price_gap": 55.0
+    },
+    {
+      "date": "2022-05-19",
+      "from_contract": "202205",
+      "to_contract": "202206",
+      "price_gap": -431.0
+    },
+    {
+      "date": "2022-06-16",
+      "from_contract": "202206",
+      "to_contract": "202207",
+      "price_gap": -311.0
+    },
+    {
+      "date": "2022-07-21",
+      "from_contract": "202207",
+      "to_contract": "202208",
+      "price_gap": -112.0
+    },
+    {
+      "date": "2022-08-18",
+      "from_contract": "202208",
+      "to_contract": "202209",
+      "price_gap": -202.0
+    },
+    {
+      "date": "2022-09-22",
+      "from_contract": "202209",
+      "to_contract": "202210",
+      "price_gap": -177.0
+    },
+    {
+      "date": "2022-10-20",
+      "from_contract": "202210",
+      "to_contract": "202211",
+      "price_gap": -183.0
+    },
+    {
+      "date": "2022-11-17",
+      "from_contract": "202211",
+      "to_contract": "202212",
+      "price_gap": -28.0
+    },
+    {
+      "date": "2022-12-22",
+      "from_contract": "202212",
+      "to_contract": "202301",
+      "price_gap": 92.0
+    },
+    {
+      "date": "2023-01-30",
+      "from_contract": "202301",
+      "to_contract": "202302",
+      "price_gap": 525.0
+    },
+    {
+      "date": "2023-02-16",
+      "from_contract": "202302",
+      "to_contract": "202303",
+      "price_gap": 60.0
+    },
+    {
+      "date": "2023-03-16",
+      "from_contract": "202303",
+      "to_contract": "202304",
+      "price_gap": -210.0
+    },
+    {
+      "date": "2023-04-20",
+      "from_contract": "202304",
+      "to_contract": "202305",
+      "price_gap": -45.0
+    },
+    {
+      "date": "2023-05-18",
+      "from_contract": "202305",
+      "to_contract": "202306",
+      "price_gap": 72.0
+    },
+    {
+      "date": "2023-06-26",
+      "from_contract": "202306",
+      "to_contract": "202307",
+      "price_gap": -378.0
+    },
+    {
+      "date": "2023-07-20",
+      "from_contract": "202307",
+      "to_contract": "202308",
+      "price_gap": -82.0
+    },
+    {
+      "date": "2023-08-17",
+      "from_contract": "202308",
+      "to_contract": "202309",
+      "price_gap": -103.0
+    },
+    {
+      "date": "2023-09-21",
+      "from_contract": "202309",
+      "to_contract": "202310",
+      "price_gap": -58.0
+    },
+    {
+      "date": "2023-10-19",
+      "from_contract": "202310",
+      "to_contract": "202311",
+      "price_gap": -61.0
+    },
+    {
+      "date": "2023-11-16",
+      "from_contract": "202311",
+      "to_contract": "202312",
+      "price_gap": 73.0
+    },
+    {
+      "date": "2023-12-21",
+      "from_contract": "202312",
+      "to_contract": "202401",
+      "price_gap": -194.0
+    },
+    {
+      "date": "2024-01-18",
+      "from_contract": "202401",
+      "to_contract": "202402",
+      "price_gap": 73.0
+    },
+    {
+      "date": "2024-02-22",
+      "from_contract": "202402",
+      "to_contract": "202403",
+      "price_gap": 217.0
+    },
+    {
+      "date": "2024-03-21",
+      "from_contract": "202403",
+      "to_contract": "202404",
+      "price_gap": 301.0
+    },
+    {
+      "date": "2024-04-18",
+      "from_contract": "202404",
+      "to_contract": "202405",
+      "price_gap": -168.0
+    },
+    {
+      "date": "2024-05-16",
+      "from_contract": "202405",
+      "to_contract": "202406",
+      "price_gap": 322.0
+    },
+    {
+      "date": "2024-06-20",
+      "from_contract": "202406",
+      "to_contract": "202407",
+      "price_gap": -72.0
+    },
+    {
+      "date": "2024-07-18",
+      "from_contract": "202407",
+      "to_contract": "202408",
+      "price_gap": -385.0
+    },
+    {
+      "date": "2024-08-22",
+      "from_contract": "202408",
+      "to_contract": "202409",
+      "price_gap": 29.0
+    },
+    {
+      "date": "2024-09-19",
+      "from_contract": "202409",
+      "to_contract": "202410",
+      "price_gap": 144.0
+    },
+    {
+      "date": "2024-10-17",
+      "from_contract": "202410",
+      "to_contract": "202411",
+      "price_gap": 156.0
+    },
+    {
+      "date": "2024-11-21",
+      "from_contract": "202411",
+      "to_contract": "202412",
+      "price_gap": -39.0
+    },
+    {
+      "date": "2024-12-19",
+      "from_contract": "202412",
+      "to_contract": "202501",
+      "price_gap": -358.0
+    },
+    {
+      "date": "2025-01-16",
+      "from_contract": "202501",
+      "to_contract": "202502",
+      "price_gap": 561.0
+    },
+    {
+      "date": "2025-02-20",
+      "from_contract": "202502",
+      "to_contract": "202503",
+      "price_gap": -103.0
+    },
+    {
+      "date": "2025-03-20",
+      "from_contract": "202503",
+      "to_contract": "202504",
+      "price_gap": 272.0
+    },
+    {
+      "date": "2025-04-17",
+      "from_contract": "202504",
+      "to_contract": "202505",
+      "price_gap": -305.0
+    },
+    {
+      "date": "2025-05-22",
+      "from_contract": "202505",
+      "to_contract": "202506",
+      "price_gap": -384.0
+    },
+    {
+      "date": "2025-06-19",
+      "from_contract": "202506",
+      "to_contract": "202507",
+      "price_gap": -488.0
+    },
+    {
+      "date": "2025-07-17",
+      "from_contract": "202507",
+      "to_contract": "202508",
+      "price_gap": -89.0
+    },
+    {
+      "date": "2025-08-21",
+      "from_contract": "202508",
+      "to_contract": "202509",
+      "price_gap": 92.0
+    },
+    {
+      "date": "2025-09-18",
+      "from_contract": "202509",
+      "to_contract": "202510",
+      "price_gap": 190.0
+    },
+    {
+      "date": "2025-10-16",
+      "from_contract": "202510",
+      "to_contract": "202511",
+      "price_gap": 389.0
+    },
+    {
+      "date": "2025-11-20",
+      "from_contract": "202511",
+      "to_contract": "202512",
+      "price_gap": 693.0
+    },
+    {
+      "date": "2025-12-18",
+      "from_contract": "202512",
+      "to_contract": "202601",
+      "price_gap": 17.0
+    },
+    {
+      "date": "2026-01-22",
+      "from_contract": "202601",
+      "to_contract": "202602",
+      "price_gap": 631.0
+    },
+    {
+      "date": "2026-02-23",
+      "from_contract": "202602",
+      "to_contract": "202603",
+      "price_gap": 492.0
+    },
+    {
+      "date": "2026-03-19",
+      "from_contract": "202603",
+      "to_contract": "202604",
+      "price_gap": -365.0
+    },
+    {
+      "date": "2026-04-16",
+      "from_contract": "202604",
+      "to_contract": "202605",
+      "price_gap": 678.0
+    },
+    {
+      "date": "2026-05-21",
+      "from_contract": "202605",
+      "to_contract": "202606",
+      "price_gap": 889.0
+    },
+    {
+      "date": "2026-06-18",
+      "from_contract": "202606",
+      "to_contract": "202607",
+      "price_gap": 802.0
+    },
+    {
+      "date": "2026-07-16",
+      "from_contract": "202607",
+      "to_contract": "202608",
+      "price_gap": -311.0
+    }
+  ]
+}

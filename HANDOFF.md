@@ -8,11 +8,16 @@
   - 規格經 grill-me 完整逼問收斂並封版於 `docs/SPEC.md`（v1.0，美股版）。
   - repo scaffold：`docs/adr/0002`~`0006` 五條 ADR、`AGENTS.md` 四要素填完、`docs/backlog/M1`~`M8` 八個里程碑檔案、`HANDOFF.md`。
   - **2026-08-01 轉向台指期（ADR 0007），SPEC v2.0 封版**：使用者裁定整案從美股 44 檔月K骨架版轉向台指期貨單一標的日K骨架＋生成日內版。已完成全面傳播：新增 ADR 0007 記錄轉向裁決；ADR 0002/0003/0005/0006 標記「已修訂（見 0007）」並加檔頭指引、ADR 0004（地雷股）標記「已廢止（Superseded by 0007）」；`docs/backlog/M1`~`M8` 全數依 SPEC v2.0 §10 重寫；`AGENTS.md` 種子/成交判定/測試慣例段同步改版；本檔更新。
-  - 尚未寫任何遊戲程式碼，尚未跑資料管線。
-- 進行中（做到哪一步）：無。上一個 agent（本次）只做規格轉向→文件全面傳播，未開工實作。
+  - **M1 資料管線完成（2026-08-01，sonnet 實作＋fresh haiku 獨立抽查通過）**：`data/daily/TX.json`（近月連續日K 4,062 筆，2010-01-04~2026-07-31，對照 TAIEX 交易日曆 0 缺日）、`TX-rolls.json`（199 次 roll，兩種拼接法不一致率 2.09% < 3% 門檻）、`data/chips.json`（三大法人 1,986 筆）、`data/macro.json`（重貼現率/CPI YoY/失業率/FEDFUNDS，2010-01 起）、`tools/fetch_m1.py`＋`validate_m1.py`（可重跑，validate 全綠）。
+  - 尚未寫任何遊戲程式碼（M2 起）。
+- 進行中（做到哪一步）：無。
+- 已知資料缺陷（詳見 `tools/README.md`）：
+  - **chips.json 只從 2018-06-05 起**——FinMind 該資料集起始日即如此，非抓取遺漏。2010-2018 劇本（平淡關 2017 含在內）將無籌碼資訊。若要補齊，TAIFEX 官網有 2007-07 起的三大法人 CSV 可另建管線（未做，列為可選任務）。
+  - 台灣總經走央行 OpenData（BIG5）＋主計總處 XML（需補憑證鏈，解法沿用 tw-stock-db）；FinMind 無 CPI/失業率資料集。
 - 下一步：
-  - **M1 資料管線**（`docs/backlog/M1-data-pipeline.md`）：TX 日K（FinMind `TaiwanFuturesDaily`，2010-01 至今、日盤、近月連續）＋三大法人籌碼（FinMind `TaiwanFuturesInstitutionalInvestors`）＋台美總經，無依賴，可先行。
-  - **M6 事件卡管線**（`docs/backlog/M6-event-card-pipeline.md`）：約 600 張事件卡生成＋嚴格檢查（台灣市場脈絡），無強依賴，可與 M1 並行。
+  - **M6 事件卡管線**（`docs/backlog/M6-event-card-pipeline.md`）：約 600 張事件卡生成＋嚴格檢查（台灣市場脈絡），無依賴可開工。
+  - **M2 生成引擎**（`docs/backlog/M2-generation-engine.md`）：M1 已完成，依賴已解除，可開工；需先建測試框架。
+  - （可選）chips 2010-2018 補齊管線（TAIFEX 官網 CSV）。
   - M2（生成引擎）依賴 M1；M3（保證金引擎，本版最大工程）依賴 M2；M4（行為系統）依賴 M3；M5（UI）依賴 M2+M3+M4；M7（戰報與檔案）依賴 M3+M4；M8（複盤 skill）依賴 M7。依賴序完整列表見各 backlog 檔案「依賴」欄。
 - 關鍵決策 + 為什麼：見 `docs/SPEC.md` §9「決策互鎖」與七條 ADR：
   - ADR 0002（已修訂，見 0007）：日K真實骨架＋種子化布朗橋生成日內，只有生成層才能讓「重玩換種子＝方向已知、執行未知」成立；共同市場因子機制因單一標的已移除。
