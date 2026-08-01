@@ -90,12 +90,19 @@ Information Access 擴充欄位指到的網址）補進 `certifi` 內建信任�
   "session": "day",
   "rows": [
     {"date": "2010-01-04", "open": 8203.0, "high": 8211.0, "low": 8101.0,
-     "close": 8166.0, "volume": 84131, "contract": "201001"}
+     "close": 8166.0, "volume": 84131, "contract": "201001", "settle": 8167.0}
   ]
 }
 ```
 
-`rows` 依 `date` 升冪排序。
+`rows` 依 `date` 升冪排序。`settle` 為 TAIFEX 官方「結算價」（用於 M3 逐日洗價，見
+`docs/SPEC.md` §1），來源與套用方式見下方「官方資料交叉驗證與 settle 回填」一節。
+
+> **狀態**：`settle` 欄位目前尚未套用進本檔（`row["settle"]` 還不存在）。已算好的
+> date→settle 對照表在 `data/_tx_settle_patch.json`，套用需要使用者在對話中明確確認
+> （in-place 覆蓋 canonical 資料，屬不可逆本機操作），確認後執行
+> `python tools/apply_settle_patch.py`。`tools/validate_m1.py` 會在 `settle` 欄位缺漏
+> 時回報紅燈，狀態一目瞭然。
 
 ### `data/daily/TX-rolls.json`
 
@@ -140,6 +147,49 @@ short_open_interest_balance_volume`（FinMind 原始欄位），**不是**當日
 
 四條序列固定 key：`tw_discount_rate`、`tw_cpi_yoy`、`tw_unemployment_rate`、
 `us_fedfunds`。`rows` 為月頻，`date` 格式 `YYYY-MM`，依日期升冪排序。
+
+### `data/daily/TX-pre2010.json`（備用，遊戲目前不讀取）
+
+schema 與 `TX.json` 相同（含 `settle`），但涵蓋 1998-07-21 ~ 2009-12-31——TAIFEX 官方
+年度行情下載回溯上限是 1998，這份資料是把時間範圍推回 1998 的備用資料，**現行遊戲時間
+範圍仍是 2010 起（見 `AGENTS.md`），本檔目前沒有任何程式碼讀取它**。多了三個頂層欄位：
+`downloaded_years`（成功下載的年份清單）、`parse_failures`（下載或解析失敗的年份，逐一
+列出原因，不強湊）、`settlement_day_proxy_count`（見下方 settle 一節）。
+
+## 官方資料交叉驗證與 settle 回填（TAIFEX 官方年度檔）
+
+`tools/crosscheck_taifex.py`、`tools/backfill_pre2010_and_settle.py`、
+`tools/apply_settle_patch.py` 三支腳本共用同一套下載／解析／近月拼接邏輯（TAIFEX
+「[期貨每日交易行情下載](https://www.taifex.com.tw/cht/3/dlFutDailyMarketView)」年度
+zip／逐月 csv，BIG5 編碼，欄位數隨年份在 16/17/19 欄間變動，見各腳本內註解），確保跟
+`TX.json` 比較或回填時邏輯基準相同。
+
+- `crosscheck_taifex.py`：下載 2010 年至今全部官方年度檔／當年度逐月檔，與 `TX.json`
+  逐日逐欄比對 OHLCV，輸出 `data/_taifex_crosscheck.json`。**不寫入 `TX.json`**。
+  2026-08-01 首次跑驗證結果：4062/4062 天完全一致（100%），合約選擇、OHLCV 全部吻合，
+  近月拼接規則的自我一致性檢核（規則選擇 vs 成交量最大合約）獨立重算出 85 天不一致，
+  與既有 `data/_tx_cross_check_report.json` 完全吻合——證實 FinMind `TaiwanFuturesDaily`
+  是 TAIFEX 官方資料的忠實鏡像，`close` 對應官方「收盤價」而非「結算價」。
+- `backfill_pre2010_and_settle.py`：(1) 下載 1998-2009 官方年度檔，建近月連續序列，寫
+  `data/daily/TX-pre2010.json`；(2) 用已下載的 2010-2026 官方原始檔（重用磁碟上既有檔，
+  缺的才補下載）算出每一列的官方結算價，寫成 `data/_tx_settle_patch.json`（date→settle
+  對照表 + 統計），**同樣不寫入 `TX.json`**——in-place 覆蓋 canonical 遊戲資料屬不可逆
+  操作，需使用者在對話中明確確認。
+- `apply_settle_patch.py`：讀 `data/_tx_settle_patch.json`，把 `settle` 欄位 append 進
+  `TX.json` 每一列（不動既有欄位與列序）。**執行前務必先看過 patch 檔的統計摘要並取得
+  使用者明確同意**，因為這是覆蓋 canonical 資料的操作。
+
+### 結算日「結算價」欄位回報 0 的已知現象
+
+官方年度檔的「結算價」欄位，在**合約自己的最後交易日**（即當月結算日）幾乎全部回報
+字面 `0`（不是缺漏標記 `"-"`）。指數期貨結算價不可能是 0，研判是因為到期日當天已改用
+另一套「到期結算價」（依標的指數到期日均價計算）現金結算，例行的每日結算價欄位對已無
+留倉部位的到期契約不再更新。2005-2007 年的官方檔在同一情況下仍回報非零值（且該值等於
+收盤價），佐證日結算價在正常交易日本來就貼近收盤價。`build_official_series()`
+（`crosscheck_taifex.py`）偵測到這個字面 0 時會以當日收盤價頂替，並計入
+`settlement_day_proxy_count`／`settlement_day_proxy_dates` 供稽核：2010-2026 共 193 天、
+1998-2009 共 13 天套用此頂替（`data/_tx_settle_patch.json` 的
+`settlement_day_proxy_count`、`TX-pre2010.json` 的 `settlement_day_proxy_count`）。
 
 ## 已知資料缺陷清單
 

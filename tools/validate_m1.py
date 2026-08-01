@@ -89,6 +89,30 @@ def main() -> int:
     else:
         print("  OHLC 合法性：全綠")
 
+    # settle（官方結算價，M3 逐日洗價用；來源見 tools/backfill_pre2010_and_settle.py）
+    has_settle_field = all("settle" in r for r in tx_rows)
+    if not has_settle_field:
+        print("  settle 欄位：尚未套用（TX.json 還沒有 settle 欄位——"
+              "若 data/_tx_settle_patch.json 存在，需人工確認後執行 "
+              "tools/apply_settle_patch.py 套用）")
+        ok = False
+    else:
+        null_settle = [r["date"] for r in tx_rows if r.get("settle") is None]
+        if null_settle:
+            print(f"  settle 非 null 檢查：{len(null_settle)} 筆為 null")
+            for d in null_settle[:20]:
+                print(f"    - {d}")
+            ok = False
+        else:
+            print("  settle 非 null 檢查：全綠")
+        diffs = sorted(abs(r["settle"] - r["close"]) for r in tx_rows if r.get("settle") is not None)
+        if diffs:
+            n = len(diffs)
+            def _pct(p: float) -> float:
+                return round(diffs[min(n - 1, int(p * n))], 2)
+            print(f"  |settle-close| 分佈（{n} 筆）：mean={sum(diffs)/n:.2f} "
+                  f"median={_pct(0.50)} p90={_pct(0.90)} p99={_pct(0.99)} max={diffs[-1]:.2f}")
+
     # ------------------------------------------------------------ TX-rolls
     rolls = load(DAILY_DIR / "TX-rolls.json")["rolls"]
     n_years = (date.fromisoformat(tx_dates[-1]) - date.fromisoformat(tx_dates[0])).days / 365.25
