@@ -1,2 +1,7 @@
 .env
 data/_raw_taifex/
+
+# M5 UI runtime output (docs/SPEC.md §7) — written by File System Access API /
+# download-fallback when a player saves a 戰報, not checked-in game content.
+/reports/
+/profile.json
