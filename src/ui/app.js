@@ -81,6 +81,14 @@ const state = {
   // final plan at report-build time. Reset in selectLevel().
   contradictionsAtStart: [],
   planModified: false,
+  // 結算自動存檔（使用者第一局實玩回饋：差點忘記按「儲存戰報」）。
+  // reportSaved: 這一局戰報是否已經寫入/下載成功（自動或手動皆算）——
+  // 「回開局畫面」的離開防呆看這個欄位。autoSaveInFlight: 進結算畫面當下
+  // 嘗試自動存檔的那個短暫視窗，true 期間鎖住「回開局畫面」（規格第 4
+  // 點：自動存檔成功後才可按），非自動存檔路徑（手動模式）不會設這個。
+  // 兩者都在 goToSettlement()/resetToSetup() 重置，跟 session 生命週期同步。
+  reportSaved: false,
+  autoSaveInFlight: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -778,6 +786,8 @@ async function goToSettlement() {
   if (state.level?.id === INFINITE_LEVEL.id) localStorage.removeItem(INFINITE_SAVE_KEY);
   showScreen('screen-settlement');
   renderSettlementSummary();
+  state.reportSaved = false;
+  await attemptAutoSaveOrShowManual();
 }
 
 function renderSettlementSummary() {
@@ -797,51 +807,178 @@ function renderSettlementSummary() {
   if (state.equityChart) state.equityChart.destroy();
   state.equityChart = createEquityChart($('equity-curve-chart'));
   state.equityChart.setData(riskSnapshots);
-
-  $('fsa-status').textContent = isFsaSupported()
-    ? '按「儲存戰報」會授權/使用你的 repo 資料夾寫入 reports/ 與 profile.json。'
-    : '此瀏覽器不支援 File System Access API，「儲存戰報」會改成下載兩個檔案。';
 }
 
-async function handleSaveReport() {
+// --------------------------------------------------------------- 結算自動存檔
+// 使用者第一局實玩回饋：結算畫面要記得按「儲存戰報」，第一局差點連戰報都
+// 沒存到。規則（見 goToSettlement 呼叫點與 wireStaticHandlers 的
+// new-game-btn 監聽器）：
+//   - 有已授權且 queryPermission 仍 granted 的資料夾 handle → 進結算畫面
+//     當下自動寫檔，不需要使用者按任何鈕；寫入當下鎖住「回開局畫面」
+//     （state.autoSaveInFlight），完成後解鎖。
+//   - 沒有 handle／權限過期／自動寫入失敗 → 退回手動模式：顯示原因＋
+//     「儲存戰報」鈕＋「授權一次後，之後每局自動存檔」提示。手動模式下
+//     「回開局畫面」不鎖，但沒存過就按會跳 confirm。
+//   - showDirectoryPicker/requestPermission 需要真人手勢，所以自動存檔
+//     只能用 getSavedDirHandle()（純讀 IndexedDB＋queryPermission，不彈窗）
+//     ——這正是 fsa.js canAutoSave() 那個小純函數在判斷的事。
+
+// 建立「授權一次後...」提示行與「變更存檔資料夾」小連結——沒有對應的
+// index.html 靜態元素（本次任務只碰 app.js/fsa.js），用 JS 動態建、插在
+// save-report-btn 旁邊，只建立一次。
+function ensureSettlementSaveUI() {
+  if ($('fsa-first-time-hint')) return;
+  const hint = document.createElement('p');
+  hint.id = 'fsa-first-time-hint';
+  hint.className = 'hint';
+  hint.textContent = '授權一次後，之後每局自動存檔。';
+  $('save-report-btn').insertAdjacentElement('afterend', hint);
+
+  const changeLink = document.createElement('button');
+  changeLink.type = 'button';
+  changeLink.id = 'fsa-change-folder-btn';
+  changeLink.className = 'btn-secondary';
+  changeLink.textContent = '變更存檔資料夾';
+  hint.insertAdjacentElement('afterend', changeLink);
+}
+
+// 兩條存檔路徑（自動／手動）共用的「組報告內容」——baseProfile 優先讀目標
+// 資料夾裡既有的 profile.json（跨局進步曲線，SPEC §3），沒有 dirHandle
+// （下載回退）就從空白 profile 開始。
+async function buildReportArtifacts(dirHandle) {
   const s = state.session;
   const lastDate = s.rows[s.cursor - 1]?.date ?? s.rows[s.rows.length - 1].date;
   let baseProfile = createProfile();
-  let dirHandle = null;
-
-  if (isFsaSupported()) {
-    try {
-      dirHandle = await getSavedDirHandle();
-      if (!dirHandle) dirHandle = await pickAndSaveDirHandle(); // this click IS the user gesture
-      const existing = await readExistingProfile(dirHandle);
-      if (existing) baseProfile = existing;
-    } catch (err) {
-      console.error('FSA authorization failed, falling back to download:', err);
-      dirHandle = null;
-    }
+  if (dirHandle) {
+    const existing = await readExistingProfile(dirHandle);
+    if (existing) baseProfile = existing;
   }
-
   const nextProfile = updateProfile(baseProfile, s);
   const reportMarkdown = buildReport(s, {
     profileHistory: nextProfile.sessions,
     contradictionsAtStart: state.contradictionsAtStart,
     planModified: state.planModified,
   });
-  const profileJson = JSON.stringify(nextProfile, null, 2);
+  return { lastDate, reportMarkdown, profileJson: JSON.stringify(nextProfile, null, 2) };
+}
+
+async function writeReportToHandle(dirHandle) {
+  const { lastDate, reportMarkdown, profileJson } = await buildReportArtifacts(dirHandle);
+  const s = state.session;
+  return writeReportFiles(dirHandle, { levelId: s.levelId, attempt: s.attempt, date: lastDate, reportMarkdown, profileJson });
+}
+
+function updateNewGameButtonState() {
+  $('new-game-btn').disabled = state.autoSaveInFlight;
+}
+
+// offerAuth=false 專給「這瀏覽器根本不支援 FSA」用——授權提示/變更資料夾
+// 連結兩個都跟「不彈窗自動存檔」這件事綁在一起，不支援就都沒意義。
+function showManualSaveUI(reasonText, { offerAuth = true } = {}) {
+  $('fsa-status').textContent = reasonText;
+  $('fsa-first-time-hint').hidden = !offerAuth;
+  $('fsa-change-folder-btn').hidden = !offerAuth;
+}
+
+function showAutoSavedUI(filename, folderName) {
+  $('fsa-status').textContent = `✓ 已自動存檔至「${folderName}」：reports/${filename}、profile.json`;
+  $('fsa-first-time-hint').hidden = true;
+  $('fsa-change-folder-btn').hidden = false;
+}
+
+// 進結算畫面當下嘗試自動存檔（規格第 1 點）；getSavedDirHandle() 只讀不彈
+// 窗（純 IndexedDB + queryPermission），完全不需要使用者手勢，可以在
+// goToSettlement() 這種非手勢觸發的路徑裡直接 await。
+async function attemptAutoSaveOrShowManual() {
+  // 鎖「回開局畫面」涵蓋整個判斷＋寫入視窗（不是只鎖寫入那一小段）：
+  // getSavedDirHandle() 本身也是 await（IndexedDB），沒鎖住的話玩家理論上
+  // 能在「還在判斷要不要自動存」的瞬間就點走，跟規格第 4 點的防呆意圖相
+  // 反。unlock 一律在 finally，任何一條分支結束都會解鎖。
+  state.autoSaveInFlight = true;
+  updateNewGameButtonState();
+  try {
+    if (!isFsaSupported()) {
+      showManualSaveUI('此瀏覽器不支援 File System Access API，「儲存戰報」會改成下載兩個檔案。', { offerAuth: false });
+      return;
+    }
+    let dirHandle = null;
+    try {
+      dirHandle = await getSavedDirHandle();
+    } catch (err) {
+      console.error('getSavedDirHandle failed:', err);
+      dirHandle = null;
+    }
+    if (!dirHandle) {
+      showManualSaveUI('尚未授權存檔資料夾，按「儲存戰報」授權一次即可。');
+      return;
+    }
+    try {
+      const filename = await writeReportToHandle(dirHandle);
+      state.reportSaved = true;
+      showAutoSavedUI(filename, dirHandle.name);
+    } catch (err) {
+      // 權限過期／資料夾被移動或刪除等——退回手動模式，原因給玩家看，不吞掉。
+      console.error('auto-save failed, falling back to manual:', err);
+      showManualSaveUI(`自動存檔失敗（${err.message}），請按「儲存戰報」手動存檔。`);
+    }
+  } finally {
+    state.autoSaveInFlight = false;
+    updateNewGameButtonState();
+  }
+}
+
+// 手動「儲存戰報」鈕：這個 click 本身就是 FSA 要求的使用者手勢，可以彈
+// showDirectoryPicker（首次授權）或 requestPermission（重新授權）。
+async function handleSaveReport() {
+  let dirHandle = null;
+
+  if (isFsaSupported()) {
+    try {
+      dirHandle = await getSavedDirHandle();
+      if (!dirHandle) dirHandle = await pickAndSaveDirHandle(); // this click IS the user gesture
+    } catch (err) {
+      console.error('FSA authorization failed, falling back to download:', err);
+      dirHandle = null;
+    }
+  }
 
   try {
     if (dirHandle) {
-      const filename = await writeReportFiles(dirHandle, { levelId: s.levelId, attempt: s.attempt, date: lastDate, reportMarkdown, profileJson });
-      $('fsa-status').textContent = `已寫入 reports/${filename} 與 profile.json`;
+      const filename = await writeReportToHandle(dirHandle);
+      state.reportSaved = true;
+      showAutoSavedUI(filename, dirHandle.name);
     } else {
+      const { lastDate, reportMarkdown, profileJson } = await buildReportArtifacts(null);
+      const s = state.session;
       const filename = downloadFallback({ levelId: s.levelId, attempt: s.attempt, date: lastDate, reportMarkdown, profileJson });
+      state.reportSaved = true;
       $('fsa-status').textContent = `已觸發下載：${filename}、profile.json`;
     }
   } catch (err) {
     console.error(err);
     $('fsa-status').textContent = `寫入失敗（${err.message}），已改為下載。`;
+    const { lastDate, reportMarkdown, profileJson } = await buildReportArtifacts(null);
+    const s = state.session;
     downloadFallback({ levelId: s.levelId, attempt: s.attempt, date: lastDate, reportMarkdown, profileJson });
+    state.reportSaved = true;
   }
+  updateNewGameButtonState();
+}
+
+// 「變更存檔資料夾」：重新 showDirectoryPicker，換一個資料夾當往後的自動
+// 存檔目標（規格第 3 點）。同一個 click 手勢下彈窗，成功後立刻用新資料夾
+// 補存一次這局的戰報（不然玩家會以為換了資料夾但這局沒存進新地方）。
+async function handleChangeFolder() {
+  try {
+    const dirHandle = await pickAndSaveDirHandle();
+    const filename = await writeReportToHandle(dirHandle);
+    state.reportSaved = true;
+    showAutoSavedUI(filename, dirHandle.name);
+  } catch (err) {
+    console.error('change folder failed:', err);
+    $('fsa-status').textContent = `變更資料夾失敗（${err.message}）。`;
+  }
+  updateNewGameButtonState();
 }
 
 // --------------------------------------------------------------- autoplay
@@ -1003,6 +1140,8 @@ function resetToSetup() {
   stopAutoplay();
   state.session = null;
   state.level = null;
+  state.reportSaved = false;
+  state.autoSaveInFlight = false;
   if (state.chart) {
     state.chart.destroy();
     state.chart = null;
@@ -1076,7 +1215,14 @@ function wireStaticHandlers() {
   });
 
   $('save-report-btn').addEventListener('click', handleSaveReport);
-  $('new-game-btn').addEventListener('click', resetToSetup);
+  $('fsa-change-folder-btn').addEventListener('click', handleChangeFolder);
+  // 規格第 4 點：自動存檔模式下按鈕本身在存檔期間被 disabled（見
+  // updateNewGameButtonState），這裡另外處理手動模式「還沒存過就想走」的
+  // 提醒——兩條規則刻意分開，不是同一個機制的兩種表現。
+  $('new-game-btn').addEventListener('click', () => {
+    if (!state.reportSaved && !confirm('這局戰報還沒存檔，離開後會遺失。確定要回開局畫面嗎？')) return;
+    resetToSetup();
+  });
 }
 
 async function resumeInfiniteProgress() {
@@ -1106,6 +1252,7 @@ async function init() {
   ensureAutoplayControlsUI();
   ensurePriceLineControlsUI();
   ensurePriceLineListUI();
+  ensureSettlementSaveUI();
   initOrderPanel();
   wireStaticHandlers();
   renderPlanFields();

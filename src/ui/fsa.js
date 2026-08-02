@@ -48,6 +48,16 @@ export function isFsaSupported() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 }
 
+// Pure decision (no DOM/IndexedDB — testable in node --test without a
+// browser, per the "結算自動存檔" task's verification note): given a
+// PermissionState string from handle.queryPermission(), can the settlement
+// screen write files WITHOUT prompting the player? Only 'granted' — 'prompt'
+// and 'denied' both need a user gesture (requestPermission/showDirectoryPicker)
+// before any write can happen, so both fall back to the manual save UI.
+export function canAutoSave(permissionState) {
+  return permissionState === 'granted';
+}
+
 // Must be called synchronously from within a user-gesture handler (click) —
 // showDirectoryPicker() and requestPermission() both require "transient user
 // activation", they will reject if called from inside an await chain that
@@ -67,7 +77,7 @@ export async function getSavedDirHandle() {
   const handle = await idbGet(HANDLE_KEY);
   if (!handle) return null;
   const perm = await handle.queryPermission({ mode: 'readwrite' });
-  return perm === 'granted' ? handle : null;
+  return canAutoSave(perm) ? handle : null;
 }
 
 // Re-requests permission on an already-saved handle; must run inside a user
