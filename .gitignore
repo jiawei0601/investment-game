@@ -5,3 +5,4 @@ data/_raw_taifex/
 # download-fallback when a player saves a 戰報, not checked-in game content.
 /reports/
 /profile.json
+__pycache__/
