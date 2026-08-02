@@ -32,7 +32,10 @@ perspective skill → 依固定分工彙整評語 → 給跨局總結。三位�
 
 ## 步驟 1：定位戰報
 
-- **無參數**：掃描 `reports/*.md`，依檔名 `{levelId}-{attempt}-{date}.md` 的
+- **搜尋位置（依序）**：① repo `reports/*.md`；② 使用者的 FSA 存檔資料夾
+  `C:\Users\chang\OneDrive\Documents\期貨練習\reports\*.md`（玩家在遊戲內授權的
+  實際存檔位置，profile.json 也在該資料夾）。兩處都掃，同名以較新者為準。
+- **無參數**：掃描上述位置的 `*.md`，依檔名 `{levelId}-{attempt}-{date}.md` 的
   `{date}`（YYYY-MM-DD）取最新一份；同日多筆再比 `{attempt}` 取最大值。
 - **有參數**：
   - 參數看起來是檔名（含 `.md` 或符合 `{levelId}-{attempt}-{date}` 樣式）→ 直接比對
