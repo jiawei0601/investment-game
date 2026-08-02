@@ -359,6 +359,68 @@ test('violations: risk_out_of_control — within both caps is not flagged (negat
   assert.equal(v.filter((x) => x.type === 'risk_out_of_control').length, 0);
 });
 
+// GLM 終審（2026-08-02 首局實玩校準，SPEC §3「首次全額＋持續遞減」二段
+// 式）：risk_out_of_control 改比照凹單的 episode 模式——同一超限狀態持續
+// 中，第一天全額，之後每天輕扣一次，不再每天全額重複扣。
+function riskSnapshot(date, drawdownPct, marginUsageRatio) {
+  return { type: 'risk_snapshot', date, equity: 1000000, peakEquity: 1000000, drawdownPct, marginUsageRatio };
+}
+
+test('violations: risk_out_of_control_continued — 21 consecutive over-limit days = 1 initial + 20 continued (real-play calibration anchor)', () => {
+  const plan = { ...BASE_PLAN, maxDrawdown: 10, marginUsageCap: 'unlimited' };
+  const dates = Array.from({ length: 21 }, (_, i) => `2020-03-${String(2 + i).padStart(2, '0')}`); // 21 synthetic sequential dates, only used as distinct keys here
+  const events = dates.map((d) => riskSnapshot(d, 15, 0.1)); // drawdown pinned at 15% > 10% cap, every single day
+  const v = detectViolations(plan, events);
+  const initial = v.filter((x) => x.type === 'risk_out_of_control');
+  const continued = v.filter((x) => x.type === 'risk_out_of_control_continued');
+  assert.equal(initial.length, 1);
+  assert.equal(continued.length, 20);
+  assert.equal(initial[0].date, dates[0]);
+
+  // Hand-computed score anchor: 100 - 1*15 - 20*3 = 100 - 15 - 60 = 25.
+  // (Coordinator's arithmetic: 1x15 + 20x3 = 75 points deducted -> score 25;
+  // before this fix the same 21-day episode deducted 21*15=315, clamped to 0.)
+  const { score, counts } = computeScore(v, plan);
+  assert.equal(score, 25);
+  assert.equal(counts.risk_out_of_control, 1);
+  assert.equal(counts.risk_out_of_control_continued, 20);
+});
+
+test('violations: risk_out_of_control — dropping back within the cap ends the episode; re-breaching starts a fresh one', () => {
+  const plan = { ...BASE_PLAN, maxDrawdown: 10, marginUsageCap: 'unlimited' };
+  const events = [
+    riskSnapshot('2020-03-02', 15, 0.1), // breach day 1 -> initial
+    riskSnapshot('2020-03-03', 15, 0.1), // breach day 2 -> continued
+    riskSnapshot('2020-03-04', 5, 0.1), // back within cap -> episode ends, no violation
+    riskSnapshot('2020-03-05', 5, 0.1), // still within cap -> no violation
+    riskSnapshot('2020-03-06', 12, 0.1), // breaches again -> a NEW episode, initial again (not continued)
+  ];
+  const v = detectViolations(plan, events);
+  const initial = v.filter((x) => x.type === 'risk_out_of_control');
+  const continued = v.filter((x) => x.type === 'risk_out_of_control_continued');
+  assert.equal(initial.length, 2);
+  assert.deepEqual(initial.map((x) => x.date), ['2020-03-02', '2020-03-06']);
+  assert.equal(continued.length, 1);
+  assert.equal(continued[0].date, '2020-03-03');
+});
+
+test('violations: risk_out_of_control — drawdown and margin-usage episodes track independently', () => {
+  const plan = { ...BASE_PLAN, maxDrawdown: 10, marginUsageCap: 30 };
+  const events = [
+    riskSnapshot('2020-03-02', 15, 0.1), // drawdown breach only (15>10) -> dd initial; margin usage 10%<30% ok
+    riskSnapshot('2020-03-03', 15, 0.5), // drawdown still breached -> dd continued; margin usage 50%>30% now breaches -> mu initial (independent, new episode)
+    riskSnapshot('2020-03-04', 5, 0.5), // drawdown back in bounds (5<10) -> dd episode ends, no dd violation; margin usage still 50%>30% -> mu continued
+  ];
+  const v = detectViolations(plan, events);
+  const byDetail = (type, substr) => v.filter((x) => x.type === type && x.detail.includes(substr));
+  assert.equal(byDetail('risk_out_of_control', '回撤').length, 1); // only 03-02
+  assert.equal(byDetail('risk_out_of_control', '保證金使用率').length, 1); // only 03-03
+  assert.equal(byDetail('risk_out_of_control_continued', '回撤').length, 1); // 03-03 (2nd consecutive dd breach day)
+  assert.equal(byDetail('risk_out_of_control_continued', '保證金使用率').length, 1); // 03-04 (2nd consecutive mu breach day)
+  // 03-04 itself must NOT carry a fresh dd violation of any kind (episode ended cleanly).
+  assert.equal(v.filter((x) => x.date === '2020-03-04' && x.detail.includes('回撤')).length, 0);
+});
+
 // 4. 論點漂移 (thesis_drift) — 記錄介面，需顯式標記 ------------------------
 test('violations: thesis_drift — explicit priceOnly flag is forwarded', () => {
   const plan = BASE_PLAN;
@@ -443,6 +505,7 @@ test('computeScore: hand-computed anchor — mixed violation set', () => {
     bag_holding_continued: 0,
     unplanned_trade: 1,
     risk_out_of_control: 0,
+    risk_out_of_control_continued: 0,
     thesis_drift: 0,
     martingale_add: 1,
   });

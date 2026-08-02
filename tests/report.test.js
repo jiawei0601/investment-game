@@ -216,6 +216,48 @@ test('buildReport: history section reports insufficient data when profileHistory
 });
 
 // ---------------------------------------------------------------------
+// GLM 終審：## 7 歷次對照去重 — profileHistory 可能已經被呼叫端用
+// updateProfile() 寫入本局（先存檔、再出報告的典型順序），此時 profileHistory
+// 裡會已經有一筆 (levelId, attempt) 與本局相同的紀錄；buildReport 一律用自己
+// 算的 currentHistoryEntry(session) 代表本局那一筆，profileHistory 裡同
+// (levelId, attempt) 的紀錄要被濾掉，不能讓本局出現兩次。
+// ---------------------------------------------------------------------
+function countOccurrences(text, needle) {
+  return (text.match(new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+}
+
+test('buildReport: history section — profileHistory NOT containing the current session shows it exactly once', () => {
+  const session = runMartingaleScenario(4);
+  const profileHistory = [priorProfileEntry(1, 1), priorProfileEntry(2, 1), priorProfileEntry(3, 1)];
+  const report = buildReport(session, { profileHistory });
+  assert.equal(countOccurrences(report, '| pandemic | 4 |'), 1);
+  assert.equal(countOccurrences(report, '（本局）'), 1);
+});
+
+test('buildReport: history section — profileHistory ALREADY containing the current session (levelId+attempt) still shows it exactly once', () => {
+  const session = runMartingaleScenario(4);
+  const alreadySavedCurrent = {
+    levelId: session.levelId,
+    attempt: session.attempt,
+    startDate: session.rows[0].date,
+    endDate: session.rows[Math.max(0, session.cursor - 1)].date,
+    score: session.score,
+    counts: session.scoreCounts,
+  };
+  const profileHistory = [priorProfileEntry(1, 1), priorProfileEntry(2, 1), priorProfileEntry(3, 1), alreadySavedCurrent];
+  const report = buildReport(session, { profileHistory });
+  assert.equal(countOccurrences(report, '| pandemic | 4 |'), 1);
+  assert.equal(countOccurrences(report, '（本局）'), 1);
+  // Row count check: the curve table body must have exactly 4 data rows
+  // (3 distinct prior attempts + 1 current), not 5 — the duplicate must be
+  // dropped, not merely hidden.
+  const curveTableRows = report
+    .split('\n')
+    .filter((l) => /^\| \d+ \| pandemic \|/.test(l));
+  assert.equal(curveTableRows.length, 4);
+});
+
+// ---------------------------------------------------------------------
 // Purity: same input -> same output, and session is never mutated.
 // ---------------------------------------------------------------------
 test('buildReport: pure function — identical input produces byte-identical output', () => {

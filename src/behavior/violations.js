@@ -52,10 +52,21 @@
 // 立刻重置旗標，之後若價格再度觸及停損條件，視為新的一次 bag_holding（不
 // 是 continued）。
 //
-// 回傳陣列，每筆違背固定形狀 {type, date, detail, planRef}，type 為六種
+// 風險失控同樣採「首次全額＋持續遞減」二段式（SPEC.md §3，2026-08-02 首局
+// 實玩校準後補上——原本每個 risk_snapshot 都全額扣分，21 天輕微超限直接扣
+// 到 0 分，分數失去解析度：同一個超限狀態掛 N 天是一個事件的延續，不是 N
+// 個事件）。回撤超計畫與保證金使用率超計畫各自獨立追蹤 episode：同一種超限
+// 持續中，第一天記 risk_out_of_control（權重不變），第二天起每天記
+// risk_out_of_control_continued（權重較輕）；回到限內該 episode 結束，之後
+// 再次超限視為新的一次 risk_out_of_control（不是 continued）。兩種超限互不
+// 影響——同一天回撤超計畫又使用率超計畫，各自照自己的 episode 狀態獨立判
+// 定，可能同一天各記一筆。
+//
+// 回傳陣列，每筆違背固定形狀 {type, date, detail, planRef}，type 為八種
 // 之一：bag_holding（凹單）／bag_holding_continued（凹單持續）／
 // unplanned_trade（計畫外交易）／risk_out_of_control（風險失控）／
-// thesis_drift（論點漂移）／martingale_add（攤平加碼）。
+// risk_out_of_control_continued（風險失控持續）／thesis_drift（論點漂移）／
+// martingale_add（攤平加碼）。
 
 function deriveStopParams(plan) {
   if (plan.stopLossRule === 'fixed_points') {
@@ -97,6 +108,11 @@ export function detectViolations(plan, events, context = {}) {
   const episodes = new Map(); // product -> {startDate} — active bag-holding episode
   const stopParams = deriveStopParams(plan);
   const maSeries = stopParams?.kind === 'ma_break' ? buildMASeries(context.dailyCloses, stopParams.n) : null;
+
+  // 風險失控二段式的兩個獨立 episode 狀態（帳戶層級，不分 product）：
+  // 回撤超計畫、保證金使用率超計畫各自一個，null = 目前不在超限狀態。
+  let drawdownEpisode = null; // {startDate} | null
+  let marginUsageEpisode = null; // {startDate} | null
 
   function flagEpisode(product, date, detail) {
     violations.push({ type: 'bag_holding', date, detail, planRef: 'stopLossRule' });
@@ -215,21 +231,48 @@ export function detectViolations(plan, events, context = {}) {
       }
 
       case 'risk_snapshot': {
-        if (plan.maxDrawdown !== 'unlimited' && ev.drawdownPct > plan.maxDrawdown) {
-          violations.push({
-            type: 'risk_out_of_control',
-            date: ev.date,
-            detail: `回撤 ${ev.drawdownPct.toFixed(1)}% 超過計畫上限 ${plan.maxDrawdown}%`,
-            planRef: 'maxDrawdown',
-          });
+        const drawdownBreach = plan.maxDrawdown !== 'unlimited' && ev.drawdownPct > plan.maxDrawdown;
+        if (drawdownBreach) {
+          if (drawdownEpisode) {
+            violations.push({
+              type: 'risk_out_of_control_continued',
+              date: ev.date,
+              detail: `回撤 ${ev.drawdownPct.toFixed(1)}% 持續超過計畫上限 ${plan.maxDrawdown}%（自 ${drawdownEpisode.startDate} 起）`,
+              planRef: 'maxDrawdown',
+            });
+          } else {
+            violations.push({
+              type: 'risk_out_of_control',
+              date: ev.date,
+              detail: `回撤 ${ev.drawdownPct.toFixed(1)}% 超過計畫上限 ${plan.maxDrawdown}%`,
+              planRef: 'maxDrawdown',
+            });
+            drawdownEpisode = { startDate: ev.date };
+          }
+        } else {
+          drawdownEpisode = null; // 回到限內，episode 結束
         }
-        if (plan.marginUsageCap !== 'unlimited' && ev.marginUsageRatio * 100 > plan.marginUsageCap) {
-          violations.push({
-            type: 'risk_out_of_control',
-            date: ev.date,
-            detail: `保證金使用率 ${(ev.marginUsageRatio * 100).toFixed(1)}% 超過計畫上限 ${plan.marginUsageCap}%`,
-            planRef: 'marginUsageCap',
-          });
+
+        const marginUsageBreach = plan.marginUsageCap !== 'unlimited' && ev.marginUsageRatio * 100 > plan.marginUsageCap;
+        if (marginUsageBreach) {
+          if (marginUsageEpisode) {
+            violations.push({
+              type: 'risk_out_of_control_continued',
+              date: ev.date,
+              detail: `保證金使用率 ${(ev.marginUsageRatio * 100).toFixed(1)}% 持續超過計畫上限 ${plan.marginUsageCap}%（自 ${marginUsageEpisode.startDate} 起）`,
+              planRef: 'marginUsageCap',
+            });
+          } else {
+            violations.push({
+              type: 'risk_out_of_control',
+              date: ev.date,
+              detail: `保證金使用率 ${(ev.marginUsageRatio * 100).toFixed(1)}% 超過計畫上限 ${plan.marginUsageCap}%`,
+              planRef: 'marginUsageCap',
+            });
+            marginUsageEpisode = { startDate: ev.date };
+          }
+        } else {
+          marginUsageEpisode = null; // 回到限內，episode 結束
         }
         break;
       }

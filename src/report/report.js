@@ -57,6 +57,15 @@
 //     REPEATED_VIOLATION_WINDOW，目前 3——某類型在最近 N 筆紀錄裡每一筆
 //     次數都 > 0，代表這 N 局都沒把它歸零）。歷史筆數不足 N 時明確標示資料
 //     不足，不臆測。
+//     **去重**：呼叫端可能已經用 updateProfile() 把本局寫進 profile 再把
+//     profile.sessions 整包當 profileHistory 傳進來（典型用法：先存檔、再出
+//     報告），此時 profileHistory 裡會已經有一筆 (levelId, attempt) 與本局
+//     相同的紀錄。本節組表格前，先把 profileHistory 中「levelId 與 attempt
+//     都等於本局」的紀錄濾掉，永遠只用這裡自己算的 currentHistoryEntry(session)
+//     代表本局那一筆——本局的分數/次數以這裡重新算的版本為準（資料來源都
+//     是同一個 session，理論上會與 profileHistory 裡的版本一致，選這個而不
+//     是相反方向純粹是「本節本來就會自己算本局那筆」，不用改呼叫端的責任
+//     邊界）。避免本局在表格裡重複出現兩次。
 //
 //   ## 8. 複盤指引
 //     固定文字：說明此檔供 Claude Code `/複盤` skill 使用，預設三位大師
@@ -82,6 +91,7 @@ const VIOLATION_LABELS = Object.freeze({
   bag_holding_continued: '凹單持續',
   unplanned_trade: '計畫外交易',
   risk_out_of_control: '風險失控',
+  risk_out_of_control_continued: '風險失控持續',
   thesis_drift: '論點漂移',
   martingale_add: '攤平加碼',
 });
@@ -402,7 +412,11 @@ function currentHistoryEntry(session) {
 
 function buildHistorySection(session, profileHistory) {
   const lines = ['## 7. 歷次對照', ''];
-  const history = Array.isArray(profileHistory) ? profileHistory : [];
+  const rawHistory = Array.isArray(profileHistory) ? profileHistory : [];
+  // 去重：profileHistory 若已經含本局（同 levelId+attempt），排除掉那筆，
+  // 本局永遠只用下面 currentHistoryEntry() 現算的版本代表一次（見檔頭 ## 7
+  // 註解）。
+  const history = rawHistory.filter((p) => !(p.levelId === session.levelId && p.attempt === session.attempt));
   const points = [...history, currentHistoryEntry(session)];
   const types = Object.keys(VIOLATION_WEIGHTS);
 
