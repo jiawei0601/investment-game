@@ -1,0 +1,308 @@
+{
+  "_meta": {
+    "purpose": "M6 事件卡生成錨點：2025-07~2026-07 每月真實事件，供 gen_events.py --anchors-file 注入生成 prompt，防止模型對此區間編造宏觀狀態（尤其 2025 年記憶體多頭與 Fed 降息軌道）。",
+    "研究方式": "WebSearch 逐月查證，每條事件皆有來源網址；查不到的月份寧缺勿編。",
+    "研究日期": "2026-08-02"
+  },
+  "2025-07": [
+    {
+      "date": "2025-07-30",
+      "event": "Fed FOMC 決議維持利率不變於 4.25%-4.50%（當年第五次會議連續不變），以 9-2 表決通過，Bowman 與 Waller 兩位理事主張應降息 25 碼並投下反對票，是自 1993 年以來首見兩位理事同時對利率決議投下反對票；鮑爾未鬆口 9 月是否降息。",
+      "source": "https://www.foxbusiness.com/economy/federal-reserve-interest-rate-decision-july-2025 ; https://www.cnbc.com/2025/07/30/fed-meeting-live-updates.html"
+    },
+    {
+      "date": "2025-07-31",
+      "event": "美國白宮宣布對台「對等關稅」自原稅率上調至 20%（暫時性稅率），訂於 8 月7日起生效；總統賴清德強調此為暫時性稅率，後續談判可望調降。",
+      "source": "https://news.pts.org.tw/article/763533"
+    },
+    {
+      "date": "2025-07（月中，8/6 報導回顧）",
+      "event": "美國商務部依 1962 年貿易擴張法 232 條款對半導體展開的關稅調查進入尾聲，市場預期調查結果將於 8 月初公布；台灣近八成對美出口品項落在 232 條款課徵範圍內，市場臆測稅率區間 20%-35%。",
+      "source": "https://technews.tw/2025/08/06/understanding-the-us-section-232-investigation/ ; https://finance.technews.tw/2025/07/10/232/"
+    },
+    {
+      "date": "2025-07（月度趨勢）",
+      "event": "AI 伺服器需求排擠傳統 DDR 產能，記憶體廠加大 HBM 產能配置，消費級 DDR5 現貨價格開始從低檔起漲（例：Corsair 32GB DDR5 套裝從 7 月的 91 美元，四個月內漲到 183 美元），記憶體超級循環的前兆已浮現。",
+      "source": "https://sourceability.com/post/dram-prices-surge-amid-ai-driven-shortage"
+    }
+  ],
+  "2025-08": [
+    {
+      "date": "2025-08-22",
+      "event": "Fed 主席鮑爾於 Jackson Hole 全球央行年會演說，釋出鴿派訊號，暗示 9 月可能降息，但同時警告關稅正推升部分商品類別物價；會後 CME FedWatch 顯示 9 月降息機率升至近九成，這是鮑爾卸任前最後一次 Jackson Hole 演說。",
+      "source": "https://www.federalreserve.gov/newsevents/speech/files/powell20250822.pdf ; https://www.npr.org/2025/08/22/nx-s1-5509941/jerome-powell-federal-reserve-interest-rates-jackson-hole"
+    },
+    {
+      "date": "2025-08 上旬",
+      "event": "美國半導體 232 條款關稅調查結果原訂 8 月初公布（商務部長盧特尼克稱約 2 週內），市場關注台積電等台廠是否能取得最惠稅率待遇，凱基投顧認為稅率落在 30%-35% 仍符合市場預期。",
+      "source": "https://technews.tw/2025/08/06/understanding-the-us-section-232-investigation/"
+    },
+    {
+      "date": "2025-08-29（財報公布後）",
+      "event": "美系客製化 AI 晶片廠邁威爾（Marvell）財報財測不如預期（資料中心業務僅季持平，市場原期待季季爆發），股價盤後重挫，拖累費半、輝達、台積電 ADR 等 AI 指標股同步下殺逾 3%；台指期夜盤同步下跌 207 點，收 24,061 點，市場開始議論「9 月魔咒」。",
+      "source": "https://money.udn.com/money/story/5607/8975070"
+    },
+    {
+      "date": "2025-08（月度）",
+      "event": "DRAM 現貨與合約價格持續走揚，Q3 DRAM 價格年增幅已達 171.8%，記憶體漲價效應延燒，成為當時漲幅最兇猛的半導體子產業之一。",
+      "source": "https://www.astutegroup.com/news/industrial/ai-infrastructure-boom-drives-historic-dram-shortage-and-price-surge-across-semiconductor-markets/"
+    }
+  ],
+  "2025-09": [
+    {
+      "date": "2025-09-17",
+      "event": "Fed FOMC 決議降息 1 碼至 4.00%-4.25%，為 2025 年首次降息（前次降息在 2024-12-18）；鮑爾定調為「風險管理」性質的降息而非新一輪寬鬆循環起點，理事 Miran 主張應降息 2 碼（50bp）；點陣圖僅顯示 2026 年將再降 1 次。",
+      "source": "https://www.stocktitan.net/articles/fed-cuts-rates-september-17-2025-fomc-decision ; https://www.cnbc.com/2025/09/17/fed-rate-decision-september-2025.html"
+    },
+    {
+      "date": "2025-09（月度，10/9 公布）",
+      "event": "台積電 9 月合併營收約新台幣 3,309.8 億元，季減 1.4%、年增 31.4%，創歷年同期新高，優於法人預估，帶動法人上修第三季美元財測。",
+      "source": "https://udn.com/news/story/7251/9059799"
+    },
+    {
+      "date": "2025-09（延續 8 月底事件）",
+      "event": "延續 8 月底邁威爾財報引發的 AI 晶片股修正情緒，市場流傳台股「9 月魔咒」說法（統計上 9 月為台股歷史最容易下跌的月份），交易人對電子權值股保守觀望。",
+      "source": "https://money.udn.com/money/story/5607/8975070"
+    },
+    {
+      "date": "2025-09-17（會後）",
+      "event": "9 月降息案的投票中，僅 Miran 一人主張降 2 碼（50bp），其餘全部支持降 1 碼（25bp），顯示 Fed 內部對降息節奏仍屬謹慎，並非齊心加速降息。",
+      "source": "https://www.stocktitan.net/articles/fed-cuts-rates-september-17-2025-fomc-decision"
+    }
+  ],
+  "2025-10": [
+    {
+      "date": "2025-10-01",
+      "event": "美國聯邦政府關門（Shutdown）正式生效，且規模與時長預期超越 2018-2019 年那次創紀錄的 35 天關門，非農就業、零售銷售等官方統計數據暫停發布，形成「資料真空」，Fed 決策被迫在數據不全下進行。",
+      "source": "https://www.cnbc.com/2025/10/01/lockdown-fed-interest-rates.html"
+    },
+    {
+      "date": "2025-10-29",
+      "event": "Fed FOMC 決議降息 1 碼至 3.75%-4.00%，為連續第二次降息，並宣布 12 月 1 日起停止縮表（QT）；表決結果 10-2，Miran 主張降 2 碼、Schmid（堪薩斯城聯準銀行總裁）則主張應維持不變；鮑爾會後對 12 月是否再降息表態保留，市場一度解讀偏鷹。",
+      "source": "https://www.cnbc.com/2025/10/29/fed-rate-decision-october-2025.html"
+    },
+    {
+      "date": "2025-10（月度啟動）",
+      "event": "記憶體超級循環正式啟動：TrendForce 統計 DDR5 現貨均價自 10 月約 7.68 美元起漲，約 2 個月內飆升逾 2.5 倍至約 27 美元；DRAM 合約價年增幅超過 170%，且因原廠集中產能到 HBM／DDR5，DDR4 出現現貨價格倒掛 DDR5 的罕見現象。",
+      "source": "https://www.sinotrade.com.tw/richclub/hotopic/-%E8%B1%90%E6%90%9C-%E7%86%B1%E9%96%80%E8%82%A1%E7%8D%A8%E5%AE%B6%E6%8F%AD%E5%AF%86-%E8%A8%98%E6%86%B6%E9%AB%94%E6%97%8F%E7%BE%A4%E7%8B%82%E9%A3%86%E7%99%BE%E8%8A%B1%E9%BD%8A%E6%94%BE-%E5%8F%B0%E8%82%A1%E6%AC%8A%E5%80%BC%E8%82%A1%E9%9C%87%E7%9B%AA%E5%BE%8C%E7%9A%84%E8%B3%87%E9%87%91%E6%96%B0%E5%8B%95%E5%90%91-68f1eadb2ba74aa8518700ab"
+    },
+    {
+      "date": "2025-10-底",
+      "event": "「川習會」前夕，美國財政部長貝森特透露美中貿易協議已達成初步框架（中國暫緩稀土出口管制 1 年、美方不對中國加徵 100% 關稅），貿易戰緊張稍緩，激勵台股逼近 28,000 點大關創新高，台積電盤中觸及 1,500 元天價，終場收在當日最低價 1,480 元、上漲 2.07%，加權指數收 27,993.63 點惜未站穩 28,000 點。",
+      "source": "https://money.udn.com/money/story/5607/9098879"
+    }
+  ],
+  "2025-11": [
+    {
+      "date": "2025-11-20",
+      "event": "輝達（NVIDIA）第三季財報優於預期，帶動台積電股價大漲、權值股全面走強，台股加權指數大漲 846.24 點（+3.18%）收 27,426.36 點，為史上單日第二大漲點，成交金額逾新台幣 5,700 億元。",
+      "source": "https://udn.com/news/story/12806/9152411"
+    },
+    {
+      "date": "2025-11-24",
+      "event": "紐約聯準銀行總裁 John Williams（Fed 利率決策委員會副主席）發言表態支持 12 月降息，市場對降息機率的預期由約三成急升至六成，標普 500 單日勁揚 1.6%、那斯達克大漲 2.7%（創 5 月以來最佳單日表現），Google 發表新一代 AI 模型 Gemini 3 帶動 Alphabet 股價暴漲 6.3%，博通漲逾 11%、美光漲 8%、超微漲 5.5%。",
+      "source": "https://fortune.com/2025/11/24/stocks-fed-interest-rate-cut-december/"
+    },
+    {
+      "date": "2025-11-03",
+      "event": "台股 11 月開局出現 V 轉，台積電股價創收盤新高，資金明顯轉向記憶體與 PCB 兩大族群；南亞科傳出可能納入 MSCI 成分股，帶動記憶體類股盤中一度亮燈漲停，PCB 因缺貨預期發酵，欣興盤中亮燈漲停終場大漲 9% 創一年新高。",
+      "source": "https://www.ctee.com.tw/news/20251103700999-430201"
+    },
+    {
+      "date": "2025-11（月度）",
+      "event": "記憶體模組廠受惠「低價庫存紅利」，威剛、十銓等公告 11 月自結 EPS 暴增（威剛 11 月 EPS 達 3.70 元、年增逾 1000%），為記憶體超級循環延燒至下游模組廠獲利面的具體例證。",
+      "source": "https://vocus.cc/article/695876fafd89780001e2051c"
+    }
+  ],
+  "2025-12": [
+    {
+      "date": "2025-12-10",
+      "event": "Fed FOMC 決議降息 1 碼至 3.50%-3.75%，為 2025 年第三次降息（延續 9 月、10 月連續降息），主要考量勞動市場持續降溫；會後 Fed 訊號顯示 2026 年初不打算立即再降息。",
+      "source": "https://www.cnn.com/2025/12/09/business/us-stock-market-federal-reserve-rate-decision"
+    },
+    {
+      "date": "2025-12-31",
+      "event": "台股封關日，加權指數以 28,963.60 點作收（上漲 0.89%），創歷史新高，全年最高與最低點相差 9,731.25 點，台積電等權值股領軍撐盤；財經媒體估算全年台股股民平均獲利約新台幣 149 萬元。",
+      "source": "https://finance.technews.tw/2025/12/31/28963"
+    },
+    {
+      "date": "2025-12-11（降息後）",
+      "event": "12 月降息落地後，市場焦點轉向對 AI 類股獲利能否支撐其龐大資本支出的疑慮，債券殖利率波動也讓部分投資人保持觀望，Fed 降息紅利對股市的支撐力道減弱，AI 泡沫化的討論聲量上升。",
+      "source": "https://www.cnn.com/2025/12/11/investing/bond-market-yields-trump"
+    },
+    {
+      "date": "2025-12（跨年展望）",
+      "event": "市場已在討論 2026 年 Fed 主席交接議題（鮑爾任期將於 2026 年 5 月屆滿），交易人開始評估新主席人選對未來降息路徑的可能影響。",
+      "source": "https://www.cnn.com/2025/12/09/business/us-stock-market-federal-reserve-rate-decision"
+    }
+  ],
+  "2026-01": [
+    {
+      "date": "2026-01-27~28",
+      "event": "Fed FOMC 決議暫停降息，維持利率於 3.50%-3.75%（結束連續三次降息），12 位投票委員中有 2 位主張應再降 1 碼而投下反對票；鮑爾表示目前政策限制性程度不算顯著，將採會議逐次決策方式。",
+      "source": "https://www.jpmorgan.com/insights/markets-and-economy/economy/fed-meeting-january-2026"
+    },
+    {
+      "date": "2026-01-30",
+      "event": "川普總統宣布提名 Kevin Warsh 接任下一屆 Fed 主席、接替即將卸任的鮑爾，展開數月的參議院審查與確認程序。",
+      "source": "https://www.npr.org/2026/05/13/nx-s1-5816235/kevin-warsh-federal-reserve-chair-jerome-powell"
+    },
+    {
+      "date": "2026-01-15",
+      "event": "台美達成關稅協議框架：台灣半導體與科技業對美新增 2,500 億美元直接投資承諾、台灣政府提供對應信用擔保，台灣對等關稅調降至 15%（不與其他關稅疊加），並在半導體 232 條款relevant關稅上取得最惠國待遇。",
+      "source": "https://blog.104.com.tw/what-is-the-us-reciprocal-tariff-storm/"
+    },
+    {
+      "date": "2026-01-02",
+      "event": "2026 年開紅盤，台股指數跳空大漲 386.21 點收 29,349.81 點創歷史新高，單週累計漲幅約 2.78%，全體上市公司總市值衝破新台幣 95.6 兆元，台積電股價衝上 1,585 元天價，半導體類股成交金額占大盤比重高達 44.13%。",
+      "source": "https://vocus.cc/article/695876fafd89780001e2051c"
+    }
+  ],
+  "2026-02": [
+    {
+      "date": "2026-02-13",
+      "event": "台美雙方正式簽署「台美對等貿易協定」（ART），確認台灣對等關稅 15% 不疊加，並取得半導體 232 條款最惠國待遇。",
+      "source": "https://blog.104.com.tw/what-is-the-us-reciprocal-tariff-storm/"
+    },
+    {
+      "date": "2026-02-20",
+      "event": "美國最高法院以 6 比 3 裁定，川普援引 1977 年 IEEPA 對全球各國片面課徵的「對等關稅」違憲（未經國會授權），推翻約七成的川普關稅政策內容，包括對中國、加拿大、墨西哥的「芬太尼」關稅。",
+      "source": "https://global.udn.com/global_vision/story/8662/9339061"
+    },
+    {
+      "date": "2026-02-24",
+      "event": "川普在最高法院判決當日改援引貿易法第 122 條款，對全球各國統一課徵 10% 進口關稅（為期上限 150 天）作為過渡方案，以規避判決限制。",
+      "source": "https://global.udn.com/global_vision/story/8662/9339061"
+    },
+    {
+      "date": "2026-02-21~22",
+      "event": "川普在 Truth Social 發文宣布將全球關稅稅率提高至 15%，稱將於未來數月內公布全新且符合法律規範的關稅制度；以美國國際收支失衡、美元貶值為由。",
+      "source": "https://finance.technews.tw/2026/02/22/trump-232-301-tariff-15pa"
+    },
+    {
+      "date": "2026-02-底",
+      "event": "Fed 於利率會議維持利率在 3.50% 不變，但內部出現明顯分歧，Waller 與 Miran 兩位理事立場鬆動、公開表態偏離既有共識。",
+      "source": "https://markets.financialcontent.com/stocks/article/marketminute-2026-2-27-fed-holds-steady-at-350-amid-growing-internal-discord-waller-and-miran-break-ranks"
+    }
+  ],
+  "2026-03": [
+    {
+      "date": "2026-02-28~2026-03初",
+      "event": "美、以對伊朗展開協同軍事行動（代號「Operation Epic Fury」），衝擊伊朗軍事設施，伊朗隨後對美國在科威特、卡達、阿聯的駐軍與能源設施發動飛彈與無人機反擊，荷姆茲海峽因保險公司撤出承保而實質封鎖，中東情勢急遽升溫，國際油價單月飆漲逾 50%。",
+      "source": "https://markets.financialcontent.com/stocks/article/marketminute-2026-3-2-energy-markets-in-turmoil-oil-prices-skyrocket-as-us-israeli-strikes-on-iran-ignite-middle-east-conflict"
+    },
+    {
+      "date": "2026-03-18",
+      "event": "Fed FOMC 決議維持利率不變於 3.50%-3.75%（11-1 表決，僅 Miran 主張降息），聲明明確提及中東情勢發展的不確定性；當時 2 月失業數據意外減少 9.2 萬人、核心 PCE 通膨黏在 2.8%，加上 2 月生效的新一輪 15% 全球關稅，通膨前景複雜化，點陣圖顯示 2026 年僅剩至多 1 次降息。",
+      "source": "https://www.cnbc.com/2026/03/18/fed-interest-rate-decision-march-2026.html"
+    },
+    {
+      "date": "2026-03（月度）",
+      "event": "受中東供油中斷衝擊，國際油價創下史上最大單月漲幅，北海布蘭特原油一度來到約每桶 130 美元；市場此前預期 2026 年可望有 2 次降息，因中東衝突升高改為最多 1 次。",
+      "source": "https://www.iea.org/reports/oil-market-report-april-2026"
+    },
+    {
+      "date": "2026-03（Fed 主席交接程序）",
+      "event": "Kevin Warsh 的 Fed 主席任命案於 3 月進入參議院銀行委員會聽證審查階段，為 5 月正式交接鋪路。",
+      "source": "https://www.aljazeera.com/economy/2026/4/29/senate-panel-advances-kevin-warshs-nomination-for-us-fed-chair"
+    }
+  ],
+  "2026-04": [
+    {
+      "date": "2026-04-02",
+      "event": "川普總統表示美國將持續打擊伊朗、「完成任務」，國際油價急漲，美股與歐股同步下挫；同時期有影像顯示伊朗中部埃斯法罕地區的巴哈雷斯坦遭到攻擊爆炸。",
+      "source": "https://markets.financialcontent.com/stocks/article/marketminute-2026-3-6-market-bloodbath-us-indexes-crater-as-middle-east-conflict-reaches-breaking-point"
+    },
+    {
+      "date": "2026-04-14",
+      "event": "台股盤中衝破 3.6 萬點創歷史新高，台積電股價飆上 2,055 元寫下歷史天價。",
+      "source": "https://www.sinotrade.com.tw/richclub/hotstock/%E5%8F%B0%E8%82%A1%E7%9B%A4%E5%BE%8C-%E5%8F%B0%E8%82%A1%E8%A1%9D%E7%A0%B43-6%E8%90%AC%E9%BB%9E%E5%89%B5%E6%AD%B7%E5%8F%B2%E6%96%B0%E9%AB%98-%E5%8F%B0%E7%A9%8D%E9%9B%BB%E9%A3%86%E4%B8%8A2-055%E5%85%83%E5%AF%AB%E6%96%B0%E5%A4%A9%E5%83%B9-0414-69ddedcfa7d2270aedca26df"
+    },
+    {
+      "date": "2026-04-07",
+      "event": "台積電盤中股價最高觸及 1,855 元領漲，台達電、聯電等電子權值股同步走強，大盤成交量放大至近新台幣 7,800 億元；同時川普政府調整對等關稅，中國稅率升至 125%（其他國家暫維持 10% 基準），半導體業者擔憂終端買氣受挫。",
+      "source": "https://www.cmoney.tw/forum/article/177942409"
+    },
+    {
+      "date": "2026-04-29",
+      "event": "參議院銀行委員會通過 Kevin Warsh 的 Fed 主席提名案，送交全院表決，為 5 月正式交接鋪路。",
+      "source": "https://www.aljazeera.com/economy/2026/4/29/senate-panel-advances-kevin-warshs-nomination-for-us-fed-chair"
+    },
+    {
+      "date": "2026-04（月度）",
+      "event": "台灣總統賴清德提出「五大策略」，尋求與美方達成台美零關稅談判、避免中東情勢外溢下的報復性關稅措施；中東緊張局勢持續推升油價，塑化類股逆勢受惠。",
+      "source": "https://vocus.cc/article/69eeaaaafd897800016211b4"
+    }
+  ],
+  "2026-05": [
+    {
+      "date": "2026-05-13",
+      "event": "美國參議院以 54 比 45 表決確認 Kevin Warsh 出任下一任 Fed 主席，是自 1977 年現行審查程序建立以來最窄的確認票數差距，僅民主黨籍聯邦參議員 John Fetterman 跨黨派支持。",
+      "source": "https://www.npr.org/2026/05/13/nx-s1-5816235/kevin-warsh-federal-reserve-chair-jerome-powell"
+    },
+    {
+      "date": "2026-05-22",
+      "event": "Kevin Warsh 正式宣誓就任 Fed 主席，任期至 2030 年 5 月 21 日；鮑爾雖卸下主席一職，但因其 Fed 理事任期至 2028 年，選擇留任理事、繼續留在 Fed 內部。",
+      "source": "https://www.consumerfinancemonitor.com/2026/05/21/warsh-to-be-sworn-in-as-fed-chair-on-may-22/"
+    },
+    {
+      "date": "2026-05-13",
+      "event": "美國 4 月消費者物價指數（CPI）總體與核心數據均高於預期，能源價格上漲是主因，通膨壓力開始擴散至其他分項，實質薪資年增率轉為負成長。",
+      "source": "https://www.wealth.com.tw/articles/63b81c4e-7553-486d-8e05-e5c1c9d54e91"
+    },
+    {
+      "date": "2026-05-12",
+      "event": "高盛預測南韓與台灣受惠 AI 晶片熱潮貿易順差創新高，將促使兩國央行今年內升息，台灣可能於第 2 季與第 4 季各升息半碼（12.5 個基點）。",
+      "source": "https://www.wealth.com.tw/articles/63b81c4e-7553-486d-8e05-e5c1c9d54e91"
+    },
+    {
+      "date": "2026-05（4 月數據，5/13 公布）",
+      "event": "台股 4 月價量齊揚，帶動證交稅收爆表，單月證交稅達新台幣 546 億元，已連續兩個月突破 500 億元，改寫歷史單月新高紀錄。",
+      "source": "https://www.wealth.com.tw/articles/63b81c4e-7553-486d-8e05-e5c1c9d54e91"
+    }
+  ],
+  "2026-06": [
+    {
+      "date": "2026-06-07",
+      "event": "美國非農就業數據公布，結果打翻市場對降息的普遍預期，台指期夜盤重挫 3,006 點，費城半導體指數單日重挫逾一成。",
+      "source": "https://vocus.cc/article/6a259657fd89780001699306"
+    },
+    {
+      "date": "2026-06-18",
+      "event": "Kevin Warsh 就任 Fed 主席後首場利率決策會議（台灣時間 6/18 凌晨公布），會中維持利率在 3.50%-3.75% 不變，但更新後的經濟預測摘要（SEP）顯示 18 位官員中有 9 位預期今年底前至少升息一次（其中 6 位預期會升息不只一次）；Warsh 罕見地取消例行前瞻指引，市場解讀為鷹派急轉，標普 500 應聲下跌 1.2%、那斯達克跌 1.4%、美光跌 6.2%、超微跌 7.3%。",
+      "source": "https://markets.financialcontent.com/stocks/article/marketminute-2026-2-24-the-warsh-shock-nomination-of-kevin-warsh-as-fed-chair-signals-aggressive-balance-sheet-pivot-and-2026-rate-normalization"
+    },
+    {
+      "date": "2026-06-24",
+      "event": "全球股市同步出現「AI 退潮」式重挫：那斯達克回落約 4.11%、標普 500 回落約 2.50%、費城半導體指數回落約 4.38%、日經回落約 2.64%、恆生回落約 4.30%，台股 AI 供應鏈與半導體權值股連動走弱。",
+      "source": "https://vocus.cc/article/6a3b8964fd897800012bf600"
+    },
+    {
+      "date": "2026-06-26",
+      "event": "台股加權指數收 44,571.76 點，單日大跌 1,683.50 點（-3.64%），聯發科重挫 9.98%、國巨跌 9.78%、聯電跌 8.12%、台達電跌 8.59%；台積電相對抗跌，收 2,340 元、跌 2.09%。",
+      "source": "https://vocus.cc/article/6a3e2bccfd89780001ab613a"
+    }
+  ],
+  "2026-07": [
+    {
+      "date": "2026-07-16",
+      "event": "台積電召開第二季法人說明會，單季合併營收首度突破新台幣 1.27 兆元，稅後純益 7,065.6 億元，每股盈餘（EPS）27.25 元，毛利率攀升至 67.7%，皆改寫單季歷史新高，主要受惠 AI 伺服器、HPC 需求強勁及 2 奈米製程開始貢獻營收。",
+      "source": "https://www.cna.com.tw/news/afe/202607010017.aspx"
+    },
+    {
+      "date": "2026-07-17",
+      "event": "儘管台積電法說會財報亮眼，隔日台股仍出現史上最大單日跌幅：加權指數重挫 2,953 點，市場解讀為「利多出盡」及去槓桿效應發威，外資與自營商賣超同創新高，被動元件類股出現跌停海嘯；台指期夜盤同步重挫。",
+      "source": "https://www.storm.mg/article/11149731"
+    },
+    {
+      "date": "2026-07-24",
+      "event": "川普政府以「強迫勞動」為由，對 60 個國家新課徵 10%-12.5% 關稅，作為美國最高法院推翻「解放日」對等關稅後的替代方案。",
+      "source": "https://www.thestreet.com/fed/markets-federal-reserve-rising-inflation-july-fed-meeting-rate-hike-showdown"
+    },
+    {
+      "date": "2026-07-28~29",
+      "event": "Fed FOMC 決議維持利率不變於 3.50%-3.75%，但以罕見的 9-3 表決通過（三位地區聯準銀行總裁 Hammack、Kashkari、Logan 一致主張應升息以壓制連續逾五年高於 2% 目標的通膨，是自 2016 年 9 月以來首見三人一致鷹派反對），凸顯關稅與中東能源成本推升的通膨壓力持續未解。",
+      "source": "https://www.cnbc.com/2026/07/29/fed-rate-decision-july-2026.html"
+    }
+  ]
+}

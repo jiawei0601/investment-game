@@ -10,6 +10,9 @@
     python tools/gen_events.py --recheck-all --rounds 5   # 對現有全部卡片獨立重掃+修正，直到收斂或達輪數上限
     python tools/gen_events.py --sample-review 30 --seed 42
                                                            # 跨年份分層隨機抽樣寫入 data/events/_review_sample_30.md
+    python tools/gen_events.py --anchors-file data/events/_anchors.json --range 2025-07:2026-07 --force
+                                                           # 有錨點的月份生成時附上真實事件清單，強制基於事實改寫；
+                                                           # 無錨點的月份完全不受影響（向後相容）
 
 每月流程：
     1. 呼叫 LLM 生成該月 2-3 張事件卡（JSON）。
@@ -127,31 +130,65 @@ SCHEMA_HINT = """
 }
 """
 
+# ---------------------------------------------------------------------------
+# 錨點注入（--anchors-file）：對某些月份附上真實事件清單，強制生成結果
+# 基於清單改寫，禁止自創清單外的宏觀數據方向。無錨點的月份不受影響（向後相容）。
+# 格式見 data/events/_anchors.json：{"YYYY-MM": [{"date","event","source"}, ...]}
+# ---------------------------------------------------------------------------
 
-def build_gen_prompt(month: str, n_cards: int) -> str:
+def load_anchors_file(path: str | Path) -> dict:
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"錨點檔不存在：{p}")
+    data = json.loads(p.read_text(encoding="utf-8"))
+    data.pop("_meta", None)
+    return data
+
+
+def format_anchors_block(anchors: list[dict] | None) -> str:
+    """把某月的錨點清單格式化成 prompt 區塊；無錨點回傳空字串（向後相容，行為不變）。"""
+    if not anchors:
+        return ""
+    lines = ["\n【本月真實事件錨點——鐵則，違反視為失敗】",
+             "以下是這個月已查證的真實事件清單（含日期、事件摘要、來源）。你生成的事件卡：",
+             "  a. 必須基於清單中的真實事實改寫成當時口吻的新聞式敘述；",
+             "  b. 禁止自創清單外的宏觀數據（利率水準、價格漲跌方向、經濟數據等）——這些只能取自清單；",
+             "  c. 允許用清單事件的市場氛圍做合理延伸（例如台股/台指期/相關類股的合理反應），"
+             "但延伸方向不可與清單事件的方向相反（清單說降息就不能寫成升息、清單說上漲就不能寫成下跌）。",
+             "清單："]
+    for a in anchors:
+        lines.append(f"  - [{a.get('date', '')}] {a.get('event', '')}（來源：{a.get('source', '')}）")
+    return "\n".join(lines) + "\n"
+
+
+def build_gen_prompt(month: str, n_cards: int, anchors: list[dict] | None = None) -> str:
     return (
         f"請生成 {month} 這個月的事件卡，共 {n_cards} 張，類別盡量分散於"
         f"{', '.join(CATEGORIES)} 之中（不強求每類都有，依當月真實新聞量而定）。\n"
         + GEN_RULES.replace("{month}", month)
+        + format_anchors_block(anchors)
         + SCHEMA_HINT
     )
 
 
-def build_single_regen_prompt(month: str, category: str, old_card: dict, reason: str) -> str:
+def build_single_regen_prompt(
+    month: str, category: str, old_card: dict, reason: str, anchors: list[dict] | None = None
+) -> str:
     return (
         f"以下是 {month} 的一張事件卡草稿，被稽核打回，原因：「{reason}」。\n"
         f"原草稿：{json.dumps(old_card, ensure_ascii=False)}\n\n"
         f"請針對同一月份、同一類別（{category}）重寫一張新的事件卡（內容可以換一個不同的具體事件，"
         f"不必修補原句子，重新想一個真正符合當時視角、不含打回理由所指問題的事件）。\n"
         + GEN_RULES.replace("{month}", month)
+        + format_anchors_block(anchors)
         + "\n【輸出格式，只回單張卡的 JSON，不要陣列、不要多餘文字】\n"
         + '{"id": "' + old_card.get("id", f"{month}-x") + '", "category": "' + category
         + '", "title": "...", "body": "...", "source_hint": "..."}'
     )
 
 
-def generate_month_cards(month: str, n_cards: int = 3) -> list[dict]:
-    prompt = build_gen_prompt(month, n_cards)
+def generate_month_cards(month: str, n_cards: int = 3, anchors: list[dict] | None = None) -> list[dict]:
+    prompt = build_gen_prompt(month, n_cards, anchors)
     raw = call_llm_dual(prompt, GEN_SYSTEM)
     parsed = json.loads(_extract_json(raw))
     cards = parsed.get("cards", [])
@@ -166,9 +203,11 @@ def generate_month_cards(month: str, n_cards: int = 3) -> list[dict]:
     return fixed
 
 
-def regenerate_single_card(month: str, old_card: dict, reason: str) -> dict:
+def regenerate_single_card(
+    month: str, old_card: dict, reason: str, anchors: list[dict] | None = None
+) -> dict:
     category = old_card.get("category", "tw_market")
-    prompt = build_single_regen_prompt(month, category, old_card, reason)
+    prompt = build_single_regen_prompt(month, category, old_card, reason, anchors)
     raw = call_llm_dual(prompt, GEN_SYSTEM)
     parsed = json.loads(_extract_json(raw))
     parsed.setdefault("id", old_card.get("id"))
@@ -225,9 +264,11 @@ def append_log(entry: dict) -> None:
 # 單月：生成 -> 檢查 -> 重生成迴圈
 # ---------------------------------------------------------------------------
 
-def process_month(month: str, max_rounds: int, stats: dict) -> list[dict]:
-    print(f"[gen] {month} ...", flush=True)
-    cards = generate_month_cards(month)
+def process_month(
+    month: str, max_rounds: int, stats: dict, anchors: list[dict] | None = None
+) -> list[dict]:
+    print(f"[gen] {month} ..." + (f"（含 {len(anchors)} 條錨點）" if anchors else ""), flush=True)
+    cards = generate_month_cards(month, anchors=anchors)
     stats["generated"] += len(cards)
     rejected_this_month = []
 
@@ -284,7 +325,7 @@ def process_month(month: str, max_rounds: int, stats: dict) -> list[dict]:
         for c in cards:
             if c["id"] in fail_reasons:
                 try:
-                    new_c = regenerate_single_card(month, c, fail_reasons[c["id"]])
+                    new_c = regenerate_single_card(month, c, fail_reasons[c["id"]], anchors=anchors)
                     stats["regenerated"] += 1
                     new_cards.append(new_c)
                 except TooManyFailures:
@@ -319,7 +360,8 @@ def parse_range(spec: str) -> list[str]:
 # 卡片——這是跨月一致性複查，不是單月生成迴圈，達上限仍未收斂則回報待人工介入）。
 # ---------------------------------------------------------------------------
 
-def recheck_all(max_rounds: int) -> int:
+def recheck_all(max_rounds: int, anchors_map: dict | None = None) -> int:
+    anchors_map = anchors_map or {}
     years = sorted(
         int(p.stem) for p in EVENTS_DIR.glob("*.json") if p.stem.isdigit()
     )
@@ -359,11 +401,14 @@ def recheck_all(max_rounds: int) -> int:
 
                 total_hits += len(fail_reasons)
                 print(f"  [fix] {month}: {list(fail_reasons)}")
+                month_anchors = anchors_map.get(month)
                 new_cards = []
                 for c in cards:
                     if c["id"] in fail_reasons:
                         try:
-                            nc = regenerate_single_card(month, c, fail_reasons[c["id"]])
+                            nc = regenerate_single_card(
+                                month, c, fail_reasons[c["id"]], anchors=month_anchors
+                            )
                             new_cards.append(nc)
                         except TooManyFailures:
                             raise
@@ -483,6 +528,57 @@ def write_review_sample(n: int, seed: int) -> Path:
     return path
 
 
+# ---------------------------------------------------------------------------
+# 單卡修正重生成（--fix-card）：針對人工複核已指出問題的特定卡片，帶著明確修正
+# 指示重生成，只動這一張卡，同月份其他卡片不受影響。
+# ---------------------------------------------------------------------------
+
+def fix_cards(specs: list[str], anchors_map: dict) -> int:
+    touched_months: set[str] = set()
+    for spec in specs:
+        try:
+            month, card_id, reason = spec.split(":", 2)
+        except ValueError:
+            print(f"[error] --fix-card 格式錯誤，需為 'YYYY-MM:card-id:修正指示'：{spec!r}")
+            return 1
+        year = int(month[:4])
+        data = load_year_file(year)
+        cards = data.get("months", {}).get(month)
+        if not cards:
+            print(f"[error] {month} 在 data/events/{year}.json 中不存在，無法修正 {card_id}")
+            return 1
+        idx = next((i for i, c in enumerate(cards) if c.get("id") == card_id), None)
+        if idx is None:
+            print(f"[error] {month} 中找不到卡片 id={card_id}")
+            return 1
+        old_card = cards[idx]
+        print(f"[fix-card] {month} {card_id}：{reason}")
+        try:
+            new_card = regenerate_single_card(
+                month, old_card, reason, anchors=anchors_map.get(month)
+            )
+        except TooManyFailures as e:
+            print(f"\n[ABORT] {e}")
+            return 3
+        except Exception as e:
+            print(f"[error] {month} {card_id} 修正失敗：{e}")
+            return 1
+        new_card.setdefault("id", card_id)
+        cards[idx] = new_card
+        data["months"][month] = cards
+        save_year_file(year, data)
+        touched_months.add(month)
+        print(f"  [ok] {month} {card_id} 已重生成並存回")
+
+    append_log({
+        "phase": "fix_cards",
+        "timestamp": dt.datetime.now().isoformat(timespec="seconds"),
+        "specs": specs,
+        "touched_months": sorted(touched_months),
+    })
+    return 0
+
+
 def main() -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -501,19 +597,35 @@ def main() -> int:
     parser.add_argument("--sample-review", type=int, default=None, metavar="N",
                          help="寫出 N 張跨年份分層抽樣到 data/events/_review_sample_30.md（配合 --seed）")
     parser.add_argument("--seed", type=int, default=42, help="--sample-review 用的隨機種子（預設 42）")
+    parser.add_argument("--anchors-file", default=None, metavar="PATH",
+                         help="真實事件錨點 JSON 檔路徑（如 data/events/_anchors.json）。"
+                              "生成/重生成時，對有錨點的月份會附上清單並要求基於清單事實改寫，"
+                              "禁止自創清單外宏觀數據；沒有錨點的月份行為不變（向後相容）。")
+    parser.add_argument("--fix-card", action="append", default=None, metavar="MONTH:ID:REASON",
+                         help="單卡修正重生成：格式 'YYYY-MM:card-id:修正指示'，用管線內既有單卡重生成路徑"
+                              "（regenerate_single_card）依自訂理由重寫指定卡片並存回原月份，"
+                              "其餘同月份卡片不動。可重複此參數修多張（跨月份亦可）。")
     args = parser.parse_args()
 
     EVENTS_DIR.mkdir(parents=True, exist_ok=True)
     if not REJECTED_PATH.exists():
         save_rejected([])  # 保證 _rejected.json 一定存在，即使沒有淘汰也佐證跑過
 
+    anchors_map: dict = {}
+    if args.anchors_file:
+        anchors_map = load_anchors_file(args.anchors_file)
+        print(f"[anchors] 已載入 {args.anchors_file}，涵蓋 {len(anchors_map)} 個月份")
+
     if args.sample_review is not None:
         write_review_sample(args.sample_review, args.seed)
         return 0
 
+    if args.fix_card:
+        return fix_cards(args.fix_card, anchors_map)
+
     if args.recheck_all:
         try:
-            return recheck_all(args.rounds)
+            return recheck_all(args.rounds, anchors_map=anchors_map)
         except TooManyFailures as e:
             print(f"\n[ABORT] {e}")
             append_log({
@@ -548,7 +660,7 @@ def main() -> int:
             stats["months_skipped"] += 1
             continue
         try:
-            cards = process_month(month, args.rounds, stats)
+            cards = process_month(month, args.rounds, stats, anchors=anchors_map.get(month))
         except TooManyFailures as e:
             print(f"\n[ABORT] {month} 處理中：{e}")
             aborted = True
