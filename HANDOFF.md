@@ -4,7 +4,7 @@
 
 - 凍結進度：已玩 2 局（mosaic-2 重算 17 分→mosaic-3 100 分）、複盤 2 次；解凍門檻 5 局＋3 複盤。首局回饋已落地：版面重排/商品下拉/價位線/SMA20/自動存檔/風險失控二段式評分/戰報去重。
 - 公開發佈（2026-08-02）：https://github.com/jiawei0601/investment-game ＋ GitHub Pages 線上版 https://jiawei0601.github.io/investment-game/（純靜態直接可玩；reports/profile 為本機 gitignore 不上傳；M6 全量事件卡與 settle patch 完成驗收後再推）。
-- 最後更新：b990374 (M5) / 2026-08-02
+- 最後更新：35e6690 (M6全量上線) / 2026-08-02
 - 目前任務 / 目標：投資行為訓練遊戲（自用，台指期貨版）。用真實市場數據模擬「當下的你」，診斷「說的」與「做的」之間的落差；不是預測訓練器、回測器、公開娛樂遊戲。規格見 `docs/SPEC.md`（唯一真相源，v2.0＋ADR 0008 修訂，開發中）。
 - 已完成：
   - 規格經 grill-me 完整逼問收斂並封版於 `docs/SPEC.md`（v1.0，美股版）。
@@ -13,21 +13,21 @@
   - **M1 資料管線完成（2026-08-01，sonnet 實作＋fresh haiku 獨立抽查通過）**：`data/daily/TX.json`（近月連續日K 4,062 筆，2010-01-04~2026-07-31，對照 TAIEX 交易日曆 0 缺日）、`TX-rolls.json`（199 次 roll，兩種拼接法不一致率 2.09% < 3% 門檻）、`data/chips.json`（三大法人 1,986 筆）、`data/macro.json`（重貼現率/CPI YoY/失業率/FEDFUNDS，2010-01 起）、`tools/fetch_m1.py`＋`validate_m1.py`（可重跑，validate 全綠）。
   - **M2 生成引擎完成（2026-08-02，b9a33c2+6d9067b）**：`src/engine/`（cyrb128+sfc32 種子、布朗橋 H/L 條件分佈加權錨點、縮σ重抽 fallback、子步影線）；`generateIntraday` 回傳 `{bars, knots}`——**觸價/強平判定必須用 301 點 knots，不能用 bar h/l**（ADR 0008、SPEC §1/§4）。經 opus 複核（修掉均勻錨點的假掃損偏差）＋GLM 複核（退化日邊界加固）兩輪收斂，39 測試綠含 4,062 天全資料集掃描。
   - **M3 保證金引擎完成（2026-08-02，6d9067b）**：`src/margin/`（不可變帳務、三商品、洗價/追繳/盤中強平/轉倉/費稅）。強平＝每口虧損最大優先（平手乘數序）；轉倉必然執行＋轉後追繳；入力 Number.isFinite 防靜默停用。opus 窄審＋GLM 全審收斂，31 測試綠。注意：markToMarket 只發 margin_call 事件，**次日砍倉執行者在 M4 會話層**。
-  - **M6 試產批完成（2026-08-02，e682c43）**：四關 28 個月 84 張全過三道檢查；全量 ~600 張已放行背景生成中（外包 NIM/DeepSeek，預估 6-7 小時，收斂後產 `data/events/_review_sample_30.md` 待使用者人工複核 30 張）。
+  - **M6 全量完成（2026-08-02，e682c43 試產＋35e6690 全量）**：597 張（199 月×3）上線；黑名單全掃 0 命中、LLM 複審多輪累計打回 ~15 張重生成、最後 6 張人工親檢通過。⚠「30 張人工複核」驗收項未核銷（`data/events/_review_sample_30.md`，seed=42）。
   - **TAIFEX 官方資料線完成（未 commit，見下）**：官方 vs FinMind 4,062 天 100% 一致；1998-2009 備用序列 `TX-pre2010.json`；settle 對照表 `_tx_settle_patch.json` 100% 覆蓋。
 - 進行中（做到哪一步）：
-  - **垂直切片全通（2026-08-02）**：M4 行為系統+會話層（ddc4474，134測試）、M7 戰報（f9aae04）、M8 /複盤 skill（c514785）、M5 UI（b990374，含整合驗證實走+修開局表單step bug）全部完成。`python tools/serve.py` 開瀏覽器可玩完整流程。全套 149 測試綠。
-  - **M6 全量生成**（外包管道背景長跑中，171 個月，收斂後產 _review_sample_30.md 待使用者複核）。
-  - 待真人手動確認兩項（自動化環境限制）：FSA 資料夾授權實際寫檔、圖表點擊開日內回放。
+  - **M1-M8 全部完成＋首局回饋修正落地**（版面重排/商品下拉/價位線/SMA20/自動存檔/風險失控二段式/戰報去重/馬賽克模式 ADR 0009/自動播放），全套 174 測試綠。
+  - 已玩 2 局（皆馬賽克）＋複盤 2 次；自動存檔已實戰驗證（戰報落 OneDrive/Documents/期貨練習）。
+  - 待真人手動確認一項：圖表點擊開日內回放（FSA 已於第二局實戰驗證）。
   - **⚠️ 等使用者確認「套用 settle」**：`python tools/apply_settle_patch.py` 把 settle 欄寫進 TX.json 被權限分類器閘門擋下，需使用者親口確認；連帶 TAIFEX 線產出（backfill/apply/crosscheck 腳本、TX-pre2010、patch 檔）尚未 commit。M4 的 markToMarket 暫以 close fallback（誤差中位數 1 點）。
 - 已知資料缺陷（詳見 `tools/README.md`）：
   - **chips.json 只從 2018-06-05 起**——免費回補管道已全數查證不可行（勿重查，見 README），付費申購 NT$153,000＋禁散布授權，已決定不買。2017 平淡關無籌碼。
   - 台灣總經走央行 OpenData（BIG5）＋主計總處 XML（需補憑證鏈，解法沿用 tw-stock-db）；FinMind 無 CPI/失業率資料集。
 - **🔒 功能凍結（2026-08-02 使用者同意）**：解凍條件=完整玩 5 局＋跑 3 次 /複盤。凍結期間只允許：真實遊玩 bug 修復、M6 三十張人工複核、settle 套用、FSA/日內回放真人手勢驗證。台股籌碼/選擇權鏈/一切新功能排解凍後。使用者承諾當場玩第一局（2026-08-02）。
-- 下一步：
-  - M4 完成後：驗證（GLM＋必要時 opus 窄審）→ commit → 派 M5（UI）與 M7（戰報）並行 → M8（複盤 skill）。
-  - M6 全量收斂後：使用者人工複核 30 張 → commit。
-  - settle 確認後：apply → validate 全綠 → commit TAIFEX 線。
+- 下一步（僅剩人工閘門與遊玩）：
+  - 使用者複核 30 張（_review_sample_30.md 簽核）→ backlog M6 正式核銷。
+  - settle 確認（使用者說「確認套用」）→ apply → validate 全綠 → commit TAIFEX 線。
+  - 玩到 5 局＋3 複盤 → 解凍，屆時整理解凍後功能清單（趨勢線繪圖、台股籌碼、選擇權鏈等）。
   - M2（生成引擎）依賴 M1；M3（保證金引擎，本版最大工程）依賴 M2；M4（行為系統）依賴 M3；M5（UI）依賴 M2+M3+M4；M7（戰報與檔案）依賴 M3+M4；M8（複盤 skill）依賴 M7。依賴序完整列表見各 backlog 檔案「依賴」欄。
 - 關鍵決策 + 為什麼：見 `docs/SPEC.md` §9「決策互鎖」與七條 ADR：
   - ADR 0002（已修訂，見 0007）：日K真實骨架＋種子化布朗橋生成日內，只有生成層才能讓「重玩換種子＝方向已知、執行未知」成立；共同市場因子機制因單一標的已移除。
@@ -43,4 +43,4 @@
   4. **劇本無中途存檔 ⇄ 行為分**：能讀檔重來就能洗掉違背紀錄。
   5. **生成日內是唯一觸價判定層**：禁止混入任何真實日內資料（不可「考據當天實際走勢」修正路徑），否則第 1 條被侵蝕且重玩一致性破裂。
   - 額外一條非互鎖但同等嚴重：**事件卡嚴禁後見之明措辭**（禁「開端」「史上最大」「隨後」「事後證明」等），一張漏餡的卡毀掉一整關，M6 驗收要求黑名單比對＋LLM複審＋人工抽樣三道防線缺一不可。
-- 怎麼跑 / 怎麼測：`node --test`（零依賴，node 24 內建 runner）跑全部 70 個測試（engine 39＋margin 31，約 11 秒含全資料集掃描）；資料驗證 `python tools/validate_m1.py`（settle 未套用前會紅一項，屬預期）。
+- 怎麼跑 / 怎麼測：`node --test`（零依賴，node 24 內建 runner）跑全部 174 個測試（engine/margin/behavior/game/report/fsa/mosaic，約 12 秒含全資料集掃描）；資料驗證 `python tools/validate_m1.py`（settle 未套用前會紅一項，屬預期）。
