@@ -2,6 +2,7 @@
 
 > 兩個 agent 交接的唯一現況真相。離開前更新，接手前先讀。
 
+- 凍結進度：已玩 2 局（mosaic-2 重算 17 分→mosaic-3 100 分）、複盤 2 次；解凍門檻 5 局＋3 複盤。首局回饋已落地：版面重排/商品下拉/價位線/SMA20/自動存檔/風險失控二段式評分/戰報去重。
 - 公開發佈（2026-08-02）：https://github.com/jiawei0601/investment-game ＋ GitHub Pages 線上版 https://jiawei0601.github.io/investment-game/（純靜態直接可玩；reports/profile 為本機 gitignore 不上傳；M6 全量事件卡與 settle patch 完成驗收後再推）。
 - 最後更新：b990374 (M5) / 2026-08-02
 - 目前任務 / 目標：投資行為訓練遊戲（自用，台指期貨版）。用真實市場數據模擬「當下的你」，診斷「說的」與「做的」之間的落差；不是預測訓練器、回測器、公開娛樂遊戲。規格見 `docs/SPEC.md`（唯一真相源，v2.0＋ADR 0008 修訂，開發中）。
