@@ -13,7 +13,12 @@
 // bars within one trading day) DOES need real increasing timestamps for its
 // time axis; see buildIntradayTimestamps below for that one exception.
 
-import { createChart, CrosshairMode } from '../../vendor/lightweight-charts.4.1.3.standalone.production.mjs';
+import { createChart, CrosshairMode, LineStyle } from '../../vendor/lightweight-charts.4.1.3.standalone.production.mjs';
+
+// 水平價位線標記（純 UI 註記，coordinator 追加項）：單一強調色虛線＋價位
+// 標籤，用 lightweight-charts 原生 series.createPriceLine，不自製繪圖層。
+const PRICE_LINE_COLOR = '#f4b942';
+const PRICE_LINE_MAX = 20;
 
 const CHART_BASE_OPTIONS = {
   layout: {
@@ -71,6 +76,18 @@ export function createDailyChart(container) {
   });
   volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.72, bottom: 0.18 } });
 
+  // SMA20 參照線（使用者需求 2026-08-02）：純顯示，不進任何判定。
+  // closes 由 setData/appendDay 維護，於 >=20 根時輸出均值點。
+  const smaSeries = chart.addLineSeries({
+    color: '#c58af9',
+    lineWidth: 1,
+    priceLineVisible: false,
+    lastValueVisible: true,
+    title: 'SMA20',
+  });
+  let smaCloses = [];
+  const smaAt = () => smaCloses.slice(-20).reduce((a, b) => a + b, 0) / 20;
+
   const chipsSeries = chart.addHistogramSeries({
     priceScaleId: 'chips',
     color: '#f4b942',
@@ -84,6 +101,11 @@ export function createDailyChart(container) {
   }
   window.addEventListener('resize', resize);
 
+  // id -> {price, handle}. Purely a display-side registry — never touches
+  // session/events/report (coordinator: 純 UI 註記，不進遊戲邏輯任何路徑).
+  const priceLines = new Map();
+  let nextPriceLineId = 1;
+
   return {
     chart,
     candleSeries,
@@ -96,6 +118,42 @@ export function createDailyChart(container) {
         if (dateStr) handler(dateStr);
       });
     },
+    // 點擊圖表任一處回報該處價格（僅回報，不建線——由呼叫端決定要不要填進
+    // 輸入框，避免誤觸就直接畫線）。param.point 在點到時間軸/價格軸之外的
+    // 區域時可能是 undefined，這種情況不回呼。
+    onPriceClick(handler) {
+      chart.subscribeClick((param) => {
+        if (!param.point) return;
+        const price = candleSeries.coordinateToPrice(param.point.y);
+        if (price !== null) handler(price);
+      });
+    },
+    // 加一條水平價位線，回傳一個穩定 id 供之後 removePriceLine 用。上限 20
+    // 條（防手滑灌爆，coordinator 規格）；超過回傳 null，呼叫端自行決定要
+    //不要提示使用者。
+    addPriceLine(price) {
+      if (priceLines.size >= PRICE_LINE_MAX) return null;
+      const handle = candleSeries.createPriceLine({
+        price,
+        color: PRICE_LINE_COLOR,
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: String(Math.round(price)),
+      });
+      const id = nextPriceLineId++;
+      priceLines.set(id, { price, handle });
+      return id;
+    },
+    removePriceLine(id) {
+      const entry = priceLines.get(id);
+      if (!entry) return;
+      candleSeries.removePriceLine(entry.handle);
+      priceLines.delete(id);
+    },
+    listPriceLines() {
+      return [...priceLines.entries()].map(([id, { price }]) => ({ id, price }));
+    },
     // rows: array of {date,open,high,low,close,volume}; chipsRows: array of
     // {date,dealer_net,it_net,fini_net} (may be shorter or start later).
     setData(rows, chipsRows) {
@@ -103,6 +161,14 @@ export function createDailyChart(container) {
       volumeSeries.setData(
         rows.map((r) => ({ time: r.date, value: r.volume, color: r.close >= r.open ? 'rgba(38,194,129,.5)' : 'rgba(239,83,80,.5)' }))
       );
+      smaCloses = rows.map((r) => r.close);
+      const smaPoints = [];
+      for (let i = 19; i < rows.length; i++) {
+        let s = 0;
+        for (let j = i - 19; j <= i; j++) s += rows[j].close;
+        smaPoints.push({ time: rows[i].date, value: s / 20 });
+      }
+      smaSeries.setData(smaPoints);
       const chipsByDate = new Map(chipsRows.map((r) => [r.date, r]));
       const chipsPoints = rows
         .filter((r) => chipsByDate.has(r.date))
@@ -126,6 +192,8 @@ export function createDailyChart(container) {
     },
     appendDay(row, chipsRow) {
       candleSeries.update({ time: row.date, open: row.open, high: row.high, low: row.low, close: row.close });
+      smaCloses.push(row.close);
+      if (smaCloses.length >= 20) smaSeries.update({ time: row.date, value: smaAt() });
       volumeSeries.update({ time: row.date, value: row.volume, color: row.close >= row.open ? 'rgba(38,194,129,.5)' : 'rgba(239,83,80,.5)' });
       if (chipsRow) {
         const net = chipsRow.dealer_net + chipsRow.it_net + chipsRow.fini_net;

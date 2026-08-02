@@ -17,9 +17,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    """開發用伺服器一律禁快取——ES module 的 script src 會被瀏覽器頑固快取，
+    改版後看到舊畫面的問題根源在此（2026-08-02 版面改版實測踩到）。"""
+
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
+
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    handler = http.server.SimpleHTTPRequestHandler
+    handler = NoCacheHandler
     with socketserver.TCPServer(("", port), lambda *a, **kw: handler(*a, directory=str(REPO_ROOT), **kw)) as httpd:
         print(f"Serving {REPO_ROOT} at http://localhost:{port}/  (Ctrl+C to stop)")
         try:

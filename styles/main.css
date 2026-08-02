@@ -151,6 +151,12 @@ input[type="number"] { font-family: var(--mono); }
 .chart-box { background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; min-height: 500px; }
 .chart-box-small { min-height: 220px; }
 
+/* 推進控制列：下一天＋自動播放（播放/暫停鈕＋速率選單，JS 動態插入）水平
+   排在主圖正下方，寬度隨 .chart-col 對齊主圖，不佔用 .side-col 空間。 */
+.advance-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.advance-controls .btn-advance { flex: 1 1 auto; margin-top: 0; }
+#autoplay-controls.field-row { flex: 0 0 auto; margin-bottom: 0; gap: 10px; }
+
 .side-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 .panel { background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
@@ -172,19 +178,19 @@ td.negative { color: var(--red); }
 .margin-preview { font-family: var(--mono); font-size: 12px; color: var(--text-1); background: var(--bg-2); border-radius: 6px; padding: 8px 10px; }
 .margin-preview.insufficient { color: var(--red); }
 
-.order-product-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
-@media (max-width: 1280px) { .order-product-cards { grid-template-columns: 1fr; } }
-.product-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-.product-card h4 { margin: 0; font-size: 12.5px; color: var(--text-0); }
-.product-card .product-mult { color: var(--text-2); font-size: 10.5px; font-family: var(--mono); }
-.product-card input[type="number"] { width: 100%; }
-.product-card button { width: 100%; font-size: 12px; padding: 7px; }
+#order-submit-btn { width: 100%; margin-bottom: 8px; }
 
 #order-queue-box { margin-top: 10px; }
 #order-queue-box h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-2); text-transform: uppercase; }
 #order-queue-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 #order-queue-list li { display: flex; justify-content: space-between; align-items: center; background: var(--bg-2); border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: var(--mono); }
 #order-queue-list button { padding: 3px 8px; font-size: 11px; }
+
+#priceline-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#priceline-list li { display: flex; justify-content: space-between; align-items: center; background: var(--bg-2); border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: var(--mono); }
+#priceline-list li button { padding: 3px 8px; font-size: 11px; }
+#priceline-controls { margin-left: auto; flex: 0 0 auto; }
+#priceline-controls input { width: 100px; }
 
 #month-events-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
 #month-events-list li { background: var(--bg-2); border-radius: 6px; padding: 8px 10px; cursor: pointer; }

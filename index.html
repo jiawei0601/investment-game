@@ -65,6 +65,13 @@
       <div class="chart-col">
         <div id="daily-chart" class="chart-box"></div>
         <p class="hint">點任一根已走過的日K，回放當天生成日內路徑（純觀看，觸價判定已在推進時完成）。</p>
+        <!-- 推進控制列（下一天＋自動播放）對齊主圖寬度，跟圖表同一欄，不
+             擠右側面板空間。自動播放的播放/暫停鈕＋速率選單由
+             src/ui/app.js 的 ensureAutoplayControlsUI() 動態插在
+             advance-day-btn 前面（同一個 flex 容器內）。 -->
+        <div id="advance-controls" class="advance-controls">
+          <button type="button" id="advance-day-btn" class="btn-primary btn-advance">下一天 →</button>
+        </div>
       </div>
 
       <div class="side-col">
@@ -85,7 +92,13 @@
 
         <section id="order-panel" class="panel">
           <h3>下單</h3>
+          <p class="hint">大台/小台/微台同一價格序列，切換商品即時試算保證金（微台 2024-07 才實際上市，此處全程開放屬時代錯置設定）。</p>
           <div class="field-row">
+            <label>商品
+              <select id="order-product">
+                <!-- JS 依 PRODUCTS(TX/MTX/TMF) 動態塞 option -->
+              </select>
+            </label>
             <label>單別
               <select id="order-kind">
                 <option value="market">市價（開倉/反手/加碼）</option>
@@ -103,11 +116,12 @@
             <label id="order-trigger-label" hidden>觸價
               <input type="number" id="order-trigger-price" step="1" />
             </label>
+            <label>口數
+              <input type="number" id="order-lots" min="1" step="1" value="1" />
+            </label>
           </div>
-          <p class="hint">大台/小台/微台同一價格序列，三種契約同時可下單試算（微台 2024-07 才實際上市，此處全程開放屬時代錯置設定）。</p>
-          <div id="order-product-cards" class="order-product-cards">
-            <!-- JS 依 PRODUCTS(TX/MTX/TMF) 動態塞三張卡：口數 input + 保證金試算 + 送出按鈕 -->
-          </div>
+          <p id="order-preview" class="margin-preview"></p>
+          <button type="button" id="order-submit-btn" class="btn-primary">送出</button>
 
           <div id="order-queue-box">
             <h4>待成交掛單</h4>
@@ -120,7 +134,6 @@
           <ul id="month-events-list"></ul>
         </section>
 
-        <button type="button" id="advance-day-btn" class="btn-primary btn-advance">下一天 →</button>
         <button type="button" id="end-run-btn" class="btn-secondary">結束本局，看戰報</button>
       </div>
     </div>
@@ -176,6 +189,9 @@
 
 </div>
 
-<script type="module" src="src/ui/app.js"></script>
+<!-- ?v= 用途：本機瀏覽器對同 URL 的 ES module 快取極頑固（no-store 都攔不住
+     既有條目），改版後畫面停在舊版時，把 v 加一即可強制重載（serve.py 已
+     no-store，正常情況不需要動它）。 -->
+<script type="module" src="src/ui/app.js?v=2"></script>
 </body>
 </html>

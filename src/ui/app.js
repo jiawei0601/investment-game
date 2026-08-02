@@ -370,6 +370,11 @@ async function enterPlayScreen() {
   if (state.chart) state.chart.destroy();
   state.chart = createDailyChart($('daily-chart'));
   state.chart.onDayClick(openIntradayModal);
+  // 點圖表任一處只把價格填進標線輸入框（僅填入，不直接建線——coordinator
+  // 規格第 1 點：避免誤觸就直接畫線）。
+  state.chart.onPriceClick((price) => {
+    $('priceline-input').value = Math.round(price);
+  });
   const rowsSoFar = state.session.rows.slice(0, state.session.cursor);
   const mosaic = isMosaicMode();
   const chartRows = mosaic ? [...mosaicContextRows(), ...rowsSoFar] : rowsSoFar;
@@ -377,7 +382,10 @@ async function enterPlayScreen() {
   // chart.js 的 setData 在 chipsPoints 為空時本來就會把 chipsSeries 收起
   // 來，不需要另開一套隱藏邏輯）。
   state.chart.setData(chartRows, mosaic ? [] : state.chipsRows);
-  renderOrderProductCards();
+  // 下單面板的 select/input/button 是靜態元素（initOrderPanel 只在 init()
+  // 跑一次接好監聽器，不像改版前的商品卡是每局重建 DOM），這裡只需要用
+  // 新 session 的價格/資金重算一次試算數字。
+  updateMarginPreview();
   renderHeader();
   renderAccountPanel();
   renderPositionsTable();
@@ -392,6 +400,7 @@ async function enterPlayScreen() {
     const anchorRow = state.session.rows[Math.max(state.session.cursor - 1, 0)];
     await loadAndRenderMonthEvents(monthOf(anchorRow.date));
   }
+  renderPriceLineList(); // 新 session 的圖表是全新的，這裡清單重置成「尚未標記」（除非 resumeInfiniteProgress 隨後補回）
   updateSettlementWarning();
 }
 
@@ -487,24 +496,20 @@ function renderPositionsTable() {
   }
 }
 
-function renderOrderProductCards() {
-  const container = $('order-product-cards');
-  container.innerHTML = '';
-  for (const product of Object.keys(PRODUCTS)) {
-    const card = document.createElement('div');
-    card.className = 'product-card';
-    card.innerHTML = `
-      <h4>${PRODUCT_LABEL[product]}</h4>
-      <span class="product-mult">NT$${PRODUCTS[product].mult}/點・手續費 NT$${PRODUCTS[product].fee}/口</span>
-      <input type="number" id="order-lots-${product}" min="1" step="1" value="1" />
-      <p id="order-preview-${product}" class="margin-preview"></p>
-      <button type="button" id="order-submit-${product}" class="btn-primary">送出</button>
-    `;
-    container.appendChild(card);
-    $(`order-lots-${product}`).addEventListener('input', () => updateMarginPreview(product));
-    $(`order-submit-${product}`).addEventListener('click', () => handleOrderSubmit(product));
-  }
+// 商品下拉＋單一組共用欄位（方向/口數/單別）取代原本三張商品卡（使用者
+// 第一局實玩回饋：三張卡太占空間）。切換商品下拉即時重算保證金試算，
+// queueOrder 帶的 product 就是下拉當下選中的值——不改任何遊戲邏輯路徑,
+// 送單/試算邏輯與改版前完全一樣，只是從「每商品一份 DOM/一份函式呼叫」
+// 收斂成「一份 DOM，讀取當下選中的 product」。
+function initOrderPanel() {
+  const select = $('order-product');
+  select.innerHTML = Object.keys(PRODUCTS)
+    .map((product) => `<option value="${product}">${PRODUCT_LABEL[product]}（NT$${PRODUCTS[product].mult}/點・手續費 NT$${PRODUCTS[product].fee}/口）</option>`)
+    .join('');
+  select.addEventListener('change', updateMarginPreview);
+  $('order-lots').addEventListener('input', updateMarginPreview);
   $('order-kind').addEventListener('change', updateOrderFormVisibility);
+  $('order-submit-btn').addEventListener('click', () => handleOrderSubmit($('order-product').value));
   updateOrderFormVisibility();
 }
 
@@ -512,7 +517,7 @@ function updateOrderFormVisibility() {
   const kind = $('order-kind').value;
   $('order-side-label').hidden = kind !== 'market';
   $('order-trigger-label').hidden = !(kind === 'stop' || kind === 'limit');
-  for (const product of Object.keys(PRODUCTS)) updateMarginPreview(product);
+  updateMarginPreview();
 }
 
 // Display-only preview (see file header note): reuses src/margin's own
@@ -520,16 +525,25 @@ function updateOrderFormVisibility() {
 // formula in the UI. The *actual* funds check still lives entirely inside
 // src/margin/trading.js's open() — this preview can never itself accept or
 // reject a trade, queueOrder() always queues regardless of what this shows.
-function updateMarginPreview(product) {
-  const el = $(`order-preview-${product}`);
+function updateMarginPreview() {
+  const el = $('order-preview');
   if (!el) return;
+  // initOrderPanel() calls this once at page-load time (via
+  // updateOrderFormVisibility) before any game has started — state.session
+  // is still null then, so bail out instead of touching s.lastSettlePrice.
+  if (!state.session) {
+    el.textContent = '';
+    el.classList.remove('insufficient');
+    return;
+  }
+  const product = $('order-product').value;
   const kind = $('order-kind').value;
   if (kind !== 'market') {
     el.textContent = kind === 'close' ? '市價平倉，不需額外保證金。' : '掛單觸價後才成交，成交當下另行結算。';
     el.classList.remove('insufficient');
     return;
   }
-  const lots = Number($(`order-lots-${product}`).value) || 0;
+  const lots = Number($('order-lots').value) || 0;
   const s = state.session;
   const price = s.lastSettlePrice;
   const margin = computeMargin(price, product);
@@ -544,7 +558,7 @@ function updateMarginPreview(product) {
 
 function handleOrderSubmit(product) {
   const kind = $('order-kind').value;
-  const lots = Number($(`order-lots-${product}`).value);
+  const lots = Number($('order-lots').value);
   if (!Number.isInteger(lots) || lots <= 0) {
     alert('口數需為正整數');
     return;
@@ -662,7 +676,16 @@ function saveInfiniteProgress() {
   if (state.level?.id === INFINITE_LEVEL.id) {
     localStorage.setItem(
       INFINITE_SAVE_KEY,
-      JSON.stringify({ session: state.session, contradictionsAtStart: state.contradictionsAtStart, planModified: state.planModified })
+      JSON.stringify({
+        session: state.session,
+        contradictionsAtStart: state.contradictionsAtStart,
+        planModified: state.planModified,
+        // 價位標線（coordinator 追加項第 4 點）：無限模式單槽存進既有
+        // localStorage，一併存 lines 陣列（純 UI 註記，不影響 session 本
+        // 身的 schema）。劇本模式沒有中途存檔本來就作廢不用管；馬賽克模式
+        // 目前沒有中途存檔功能，同樣不用管。
+        priceLines: state.chart ? state.chart.listPriceLines().map((l) => l.price) : [],
+      })
     );
   }
 }
@@ -700,7 +723,7 @@ async function handleAdvanceDay() {
   renderAccountPanel();
   renderPositionsTable();
   renderOrderQueue();
-  for (const product of Object.keys(PRODUCTS)) updateMarginPreview(product);
+  updateMarginPreview();
 
   const newMonth = monthOf(newRow.date);
   if (!mosaic && newMonth !== prevMonth) await loadAndRenderMonthEvents(newMonth);
@@ -841,6 +864,83 @@ function ensureAutoplayControlsUI() {
   $('advance-day-btn').insertAdjacentElement('beforebegin', wrap);
 }
 
+// --------------------------------------------------------------- 水平價位線標記
+
+// 小輸入組（價位數字輸入＋標線鈕）插在推進控制列裡（跟下一天/自動播放同
+// 一條，coordinator 規格第 1 點）。點圖表任一處只把價格「填進輸入框」
+// （見 enterPlayScreen 的 onPriceClick 接線），不直接建線，避免誤觸。
+function ensurePriceLineControlsUI() {
+  if ($('priceline-controls')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'priceline-controls';
+  wrap.className = 'field-row';
+  wrap.innerHTML = `
+    <label>價位標線
+      <input type="number" id="priceline-input" step="1" placeholder="點圖表帶入" />
+    </label>
+    <button type="button" id="priceline-add-btn" class="btn-secondary">＋ 標線</button>
+  `;
+  $('advance-controls').appendChild(wrap);
+}
+
+// 已標線清單顯示在下單面板附近（coordinator 規格第 2 點）。
+function ensurePriceLineListUI() {
+  if ($('priceline-list-panel')) return;
+  const section = document.createElement('section');
+  section.id = 'priceline-list-panel';
+  section.className = 'panel';
+  section.innerHTML = `
+    <h3>已標價位線</h3>
+    <ul id="priceline-list"></ul>
+  `;
+  $('order-panel').insertAdjacentElement('beforebegin', section);
+}
+
+// 純 UI 註記（coordinator 規格第 4 點）：line 的實際狀態活在
+// state.chart（src/ui/chart.js 的 candleSeries.createPriceLine 封裝），這
+// 裡只是每次變動後重畫清單，不進 session/events/report 任何一條路徑。
+function renderPriceLineList() {
+  const ul = $('priceline-list');
+  if (!ul) return;
+  const lines = state.chart ? state.chart.listPriceLines() : [];
+  ul.innerHTML = '';
+  if (lines.length === 0) {
+    ul.innerHTML = '<li class="hint">尚未標記</li>';
+    return;
+  }
+  for (const { id, price } of lines) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = Math.round(price);
+    const btn = document.createElement('button');
+    btn.className = 'btn-secondary';
+    btn.textContent = '刪除';
+    btn.addEventListener('click', () => {
+      state.chart.removePriceLine(id);
+      renderPriceLineList();
+      saveInfiniteProgress();
+    });
+    li.append(span, btn);
+    ul.appendChild(li);
+  }
+}
+
+function handleAddPriceLine() {
+  if (!state.chart) return;
+  const price = Number($('priceline-input').value);
+  if (!Number.isFinite(price)) {
+    alert('請輸入有效價位');
+    return;
+  }
+  const id = state.chart.addPriceLine(price);
+  if (id === null) {
+    alert('已達上限 20 條，請先刪除幾條再標新的（防手滑灌爆）。');
+    return;
+  }
+  renderPriceLineList();
+  saveInfiniteProgress();
+}
+
 function isAnyModalOpen() {
   return !$('thesis-modal').hidden || !$('contradiction-modal').hidden || !$('intraday-modal').hidden;
 }
@@ -965,6 +1065,7 @@ function wireStaticHandlers() {
   });
   $('autoplay-toggle-btn').addEventListener('click', toggleAutoplay);
   $('autoplay-rate-select').addEventListener('change', changeAutoplayRate);
+  $('priceline-add-btn').addEventListener('click', handleAddPriceLine);
   $('end-run-btn').addEventListener('click', () => {
     stopAutoplay();
     if (confirm('確定要結束本局嗎？未跑完的天數不會再產生資料，直接進戰報。')) goToSettlement();
@@ -989,6 +1090,10 @@ async function resumeInfiniteProgress() {
     state.level = INFINITE_LEVEL;
     await enterPlayScreen();
     state.chart.setData(state.session.rows.slice(0, state.session.cursor), state.chipsRows);
+    // 價位標線還原（coordinator 追加項第 4 點）：enterPlayScreen 剛建的是
+    // 全新 chart，先前存的 lines 陣列要逐一補回去。
+    for (const price of parsed.priceLines ?? []) state.chart.addPriceLine(price);
+    renderPriceLineList();
   } catch (err) {
     console.error(err);
     alert('讀取上次進度失敗，將移除該筆存檔。');
@@ -999,6 +1104,9 @@ async function resumeInfiniteProgress() {
 async function init() {
   ensureMosaicOptionsUI();
   ensureAutoplayControlsUI();
+  ensurePriceLineControlsUI();
+  ensurePriceLineListUI();
+  initOrderPanel();
   wireStaticHandlers();
   renderPlanFields();
   try {
