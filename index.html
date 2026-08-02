@@ -151,9 +151,9 @@
   </section>
 
   <!-- ============================== 論點強制輸入 modal ============================== -->
-  <div id="thesis-modal" class="modal-overlay" hidden>
-    <div class="modal-box">
-      <h3>一句話：為什麼是現在、為什麼是這個方向？</h3>
+  <div id="thesis-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="thesis-modal-title" hidden>
+    <div class="modal-box" tabindex="-1">
+      <h3 id="thesis-modal-title">一句話：為什麼是現在、為什麼是這個方向？</h3>
       <p class="hint">新開倉或反手強制記錄論點，後續操作與其牴觸將記違背。</p>
       <textarea id="thesis-input" rows="3" required></textarea>
       <div class="modal-actions">
@@ -164,9 +164,9 @@
   </div>
 
   <!-- ============================== 矛盾警告 modal ============================== -->
-  <div id="contradiction-modal" class="modal-overlay" hidden>
-    <div class="modal-box modal-box-wide">
-      <h3>大師警告：作戰計畫自相矛盾</h3>
+  <div id="contradiction-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contradiction-modal-title" hidden>
+    <div class="modal-box modal-box-wide" tabindex="-1">
+      <h3 id="contradiction-modal-title">大師警告：作戰計畫自相矛盾</h3>
       <div id="contradiction-list"></div>
       <div class="modal-actions">
         <button type="button" id="contradiction-revise" class="btn-secondary">修改計畫</button>
@@ -176,9 +176,9 @@
   </div>
 
   <!-- ============================== 日內回放 modal ============================== -->
-  <div id="intraday-modal" class="modal-overlay" hidden>
-    <div class="modal-box modal-box-wide">
-      <h3>日內回放 <span id="intraday-date-label"></span></h3>
+  <div id="intraday-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="intraday-modal-title" hidden>
+    <div class="modal-box modal-box-wide" tabindex="-1">
+      <h3 id="intraday-modal-title">日內回放 <span id="intraday-date-label"></span></h3>
       <p class="hint hint-strong">純觀看：觸價判定（停損/停利/強平/追繳）已在「推進」當下完成，回放不會重新觸發任何交易。</p>
       <div id="intraday-chart" class="chart-box"></div>
       <div class="modal-actions">
