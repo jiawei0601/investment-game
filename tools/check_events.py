@@ -183,12 +183,23 @@ def llm_review_batch(month: str, cards: list[dict]) -> dict[str, dict]:
     if not cards:
         return {}
     prompt = build_review_prompt(month, cards)
-    raw = call_llm_dual(prompt, REVIEW_SYSTEM)
-    json_text = _extract_json(raw)
-    try:
-        parsed = json.loads(json_text)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"LLM 複審回傳非合法 JSON：{e}\n原始輸出：{raw[:1000]}")
+    # 空回應/非法 JSON 視同該次呼叫失敗（LLM 偶發回空字串，2026-08-02 全量跑實測），
+    # 重試最多 3 次；仍失敗走 LLMCallFailure（呼叫端可跳過該月續跑），不再炸整條鏈。
+    parsed = None
+    last_err: Exception | None = None
+    for _parse_attempt in range(3):
+        raw = call_llm_dual(prompt, REVIEW_SYSTEM)
+        json_text = _extract_json(raw)
+        try:
+            parsed = json.loads(json_text)
+            break
+        except json.JSONDecodeError as e:
+            last_err = e
+            time.sleep(2.0)
+    if parsed is None:
+        global _consecutive_failures
+        _consecutive_failures += 1
+        raise LLMCallFailure(f"LLM 複審連續回傳非合法 JSON/空回應：{last_err}")
     result = {}
     for item in parsed:
         cid = item.get("id")
