@@ -139,8 +139,9 @@ test('mosaic: settle field full coverage when source data carries settle', () =>
   for (const r of rows) assert.equal(typeof r.settle, 'number', `row ${r.date} missing settle`);
 });
 
-test('mosaic: no settle field when source data has none (matches TX.json shape today)', () => {
-  const { rows } = buildMosaicRows({ attempt: 2, dailyRows: ROWS, monthsTarget: 6 });
+test('mosaic: no settle field when source data has none (synthetic fixture; TX.json 自 2026-08-03 起已含 settle)', () => {
+  const noSettle = ROWS.map(({ settle, ...rest }) => rest);
+  const { rows } = buildMosaicRows({ attempt: 2, dailyRows: noSettle, monthsTarget: 6 });
   for (const r of rows) assert.equal(Object.prototype.hasOwnProperty.call(r, 'settle'), false);
 });
 
