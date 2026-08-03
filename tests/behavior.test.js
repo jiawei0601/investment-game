@@ -560,3 +560,14 @@ test('profile: createProfile + recordSession round trip', () => {
 test('profile: recordSession throws on missing required field', () => {
   assert.throws(() => recordSession(createProfile(), { levelId: 'x' }));
 });
+
+test('recordSession: same (levelId, attempt) replaces instead of appending (auto-save + manual re-save dedupe)', () => {
+  let p = createProfile();
+  const base = { levelId: 'mosaic', attempt: 7, startDate: '2020-01-01', endDate: '2020-06-30', completedAt: '2020-06-30', score: 80, counts: {} };
+  p = recordSession(p, base);
+  p = recordSession(p, { ...base, score: 75 });
+  assert.equal(p.sessions.length, 1);
+  assert.equal(p.sessions[0].score, 75);
+  p = recordSession(p, { ...base, attempt: 8 });
+  assert.equal(p.sessions.length, 2);
+});

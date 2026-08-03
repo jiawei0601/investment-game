@@ -37,5 +37,11 @@ export function recordSession(profile, entry) {
     score: entry.score,
     counts: { ...entry.counts },
   };
-  return { ...profile, sessions: [...profile.sessions, record] };
+  // 同一局（levelId, attempt）只記一筆：自動存檔＋手動補存/變更資料夾補存
+  // 會對同一 session 各呼叫一次 updateProfile，append 會重複計局
+  // （2026-08-03 實測 profile 出現雙重紀錄）。同鍵改為覆蓋。
+  const others = profile.sessions.filter(
+    (s) => !(s.levelId === record.levelId && s.attempt === record.attempt)
+  );
+  return { ...profile, sessions: [...others, record] };
 }
