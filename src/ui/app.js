@@ -39,6 +39,7 @@ import {
   writeReportFiles,
   downloadFallback,
 } from './fsa.js';
+import { closeModal, installModalKeyboardSupport, isModalOpen, openModal } from './modal.js';
 
 const PRODUCT_LABEL = { TX: '大台 TX', MTX: '小台 MTX', TMF: '微台 TMF' };
 const MASTER_LABEL = { livermore: 'Livermore', opman: 'OPMAN 胖叔', gooaye: '謝孟恭' };
@@ -128,10 +129,20 @@ function renderLevelCards() {
   const grid = $('level-select');
   grid.innerHTML = '';
   for (const level of [...LEVELS, INFINITE_LEVEL, MOSAIC_LEVEL]) {
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.className = 'level-card';
     card.dataset.levelId = level.id;
-    card.innerHTML = `<h4>${level.name}</h4><div class="level-range">${level.range}</div><div class="level-goal">${level.goal}</div>`;
+    card.setAttribute('aria-pressed', 'false');
+    const title = document.createElement('h4');
+    title.textContent = level.name;
+    const range = document.createElement('div');
+    range.className = 'level-range';
+    range.textContent = level.range;
+    const goal = document.createElement('div');
+    goal.className = 'level-goal';
+    goal.textContent = level.goal;
+    card.append(title, range, goal);
     card.addEventListener('click', () => selectLevel(level));
     grid.appendChild(card);
   }
@@ -144,7 +155,11 @@ function selectLevel(level) {
   state.mosaicMeta = null;
   state.contradictionsAtStart = [];
   state.planModified = false;
-  document.querySelectorAll('.level-card').forEach((c) => c.classList.toggle('selected', c.dataset.levelId === level.id));
+  document.querySelectorAll('.level-card').forEach((c) => {
+    const selected = c.dataset.levelId === level.id;
+    c.classList.toggle('selected', selected);
+    c.setAttribute('aria-pressed', String(selected));
+  });
   $('setup-form-title').textContent = level.name;
   $('setup-form-goal').textContent = level.goal;
   $('infinite-options').hidden = level.id !== INFINITE_LEVEL.id;
@@ -255,22 +270,46 @@ function collectPlanFromForm() {
   return plan;
 }
 
-function masterQuoteBlock(templateKey) {
+function createMasterQuoteBlock(templateKey) {
+  const block = document.createElement('div');
+  block.className = 'master-quote-block';
   const templates = getTemplate(templateKey);
-  return Object.entries(templates)
-    .map(
-      ([master, lines]) =>
-        `<div class="master-quote-block"><h4>${MASTER_LABEL[master] ?? master}</h4>${lines.map((l) => `<p>「${l}」</p>`).join('')}</div>`
-    )
-    .join('');
+  for (const [master, lines] of Object.entries(templates)) {
+    const heading = document.createElement('h4');
+    heading.textContent = MASTER_LABEL[master] ?? master;
+    block.appendChild(heading);
+    for (const line of lines) {
+      const quote = document.createElement('p');
+      quote.textContent = `「${line}」`;
+      block.appendChild(quote);
+    }
+  }
+  return block;
 }
 
 function showContradictionModal(contradictions) {
   const list = $('contradiction-list');
-  list.innerHTML = contradictions
-    .map((c) => `<div class="contradiction-block"><p class="contradiction-reason">${c.reason}</p>${masterQuoteBlock(c.templateKey)}</div>`)
-    .join('');
-  $('contradiction-modal').hidden = false;
+  list.replaceChildren();
+  for (const contradiction of contradictions) {
+    const block = document.createElement('div');
+    block.className = 'contradiction-block';
+    const reason = document.createElement('p');
+    reason.className = 'contradiction-reason';
+    reason.textContent = contradiction.reason;
+    block.append(reason, createMasterQuoteBlock(contradiction.templateKey));
+    list.appendChild(block);
+  }
+  openModal($('contradiction-modal'), {
+    initialFocus: '#contradiction-revise',
+    onEscape: reviseContradiction,
+  });
+}
+
+function reviseContradiction() {
+  state.planModified = true;
+  closeModal($('contradiction-modal'));
+  state.pendingPlan = null;
+  state.pendingContradictions = null;
 }
 
 function handleStartGameSubmit(e) {
@@ -603,7 +642,15 @@ function queueMarketOrder({ product, side, lots, thesis }) {
 function openThesisModal(order) {
   state.pendingMarketOrder = order;
   $('thesis-input').value = '';
-  $('thesis-modal').hidden = false;
+  openModal($('thesis-modal'), {
+    initialFocus: '#thesis-input',
+    onEscape: cancelThesisModal,
+  });
+}
+
+function cancelThesisModal() {
+  state.pendingMarketOrder = null;
+  closeModal($('thesis-modal'));
 }
 
 function describeOrder(o) {
@@ -749,13 +796,39 @@ async function loadAndRenderMonthEvents(monthStr) {
   const ul = $('month-events-list');
   ul.innerHTML = '';
   if (events.length === 0) {
-    ul.innerHTML = '<li class="hint">本月尚無事件卡（全量仍在生成中）。</li>';
+    const empty = document.createElement('li');
+    empty.className = 'hint';
+    empty.textContent = '本月尚無事件卡（全量仍在生成中）。';
+    ul.appendChild(empty);
     return;
   }
   for (const ev of events) {
     const li = document.createElement('li');
-    li.innerHTML = `<div class="event-title"><span>${ev.title}</span><span class="event-category">${ev.category ?? ''}</span></div><div class="event-body">${ev.body}</div>`;
-    li.addEventListener('click', () => li.classList.toggle('expanded'));
+    li.tabIndex = 0;
+    li.setAttribute('role', 'button');
+    li.setAttribute('aria-expanded', 'false');
+    const title = document.createElement('div');
+    title.className = 'event-title';
+    const titleText = document.createElement('span');
+    titleText.textContent = ev.title ?? '';
+    const category = document.createElement('span');
+    category.className = 'event-category';
+    category.textContent = ev.category ?? '';
+    title.append(titleText, category);
+    const body = document.createElement('div');
+    body.className = 'event-body';
+    body.textContent = ev.body ?? '';
+    li.append(title, body);
+    const toggle = () => {
+      const expanded = li.classList.toggle('expanded');
+      li.setAttribute('aria-expanded', String(expanded));
+    };
+    li.addEventListener('click', toggle);
+    li.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle();
+    });
     ul.appendChild(li);
   }
 }
@@ -775,7 +848,7 @@ function openIntradayModal(dateStr) {
   const seed = buildSeed(s.levelId, s.attempt, dateStr);
   const { bars } = generateIntraday({ open: row.open, high: row.high, low: row.low, close: row.close }, seed);
   $('intraday-date-label').textContent = dateStr;
-  $('intraday-modal').hidden = false;
+  openModal($('intraday-modal'), { initialFocus: '#intraday-close' });
   if (!state.intradayChart) state.intradayChart = createIntradayChart($('intraday-chart'));
   state.intradayChart.setBars(dateStr, bars);
 }
@@ -1079,7 +1152,7 @@ function handleAddPriceLine() {
 }
 
 function isAnyModalOpen() {
-  return !$('thesis-modal').hidden || !$('contradiction-modal').hidden || !$('intraday-modal').hidden;
+  return isModalOpen($('thesis-modal')) || isModalOpen($('contradiction-modal')) || isModalOpen($('intraday-modal'));
 }
 
 function isAutoplaying() {
@@ -1162,29 +1235,26 @@ function resetToSetup() {
 // --------------------------------------------------------------- wiring
 
 function wireStaticHandlers() {
+  installModalKeyboardSupport();
   $('setup-form').addEventListener('submit', handleStartGameSubmit);
   $('infinite-randomize-btn').addEventListener('click', randomizeInfiniteStart);
   $('infinite-resume-btn').addEventListener('click', resumeInfiniteProgress);
 
   $('contradiction-revise').addEventListener('click', () => {
-    state.planModified = true; // player chose to go edit the plan instead of proceeding as-is
-    $('contradiction-modal').hidden = true;
-    state.pendingPlan = null;
-    state.pendingContradictions = null;
+    reviseContradiction();
   });
   $('contradiction-proceed').addEventListener('click', () => {
     const plan = state.pendingPlan; // "堅持開局" — plan unchanged; contradictionsAtStart/planModified already
     // captured on state and flow straight into buildReport's options at
     // save-report time (src/report/report.js §2), no need to mutate plan itself.
-    $('contradiction-modal').hidden = true;
+    closeModal($('contradiction-modal'));
     startSessionFlow(plan);
     state.pendingPlan = null;
     state.pendingContradictions = null;
   });
 
   $('thesis-cancel').addEventListener('click', () => {
-    state.pendingMarketOrder = null;
-    $('thesis-modal').hidden = true;
+    cancelThesisModal();
   });
   $('thesis-confirm').addEventListener('click', () => {
     const thesis = $('thesis-input').value.trim();
@@ -1192,7 +1262,7 @@ function wireStaticHandlers() {
       alert('請填寫論點才能送出（一句話：為什麼是現在、為什麼是這個方向？）');
       return;
     }
-    $('thesis-modal').hidden = true;
+    closeModal($('thesis-modal'));
     queueMarketOrder({ ...state.pendingMarketOrder, thesis });
     state.pendingMarketOrder = null;
   });
@@ -1211,7 +1281,7 @@ function wireStaticHandlers() {
   });
 
   $('intraday-close').addEventListener('click', () => {
-    $('intraday-modal').hidden = true;
+    closeModal($('intraday-modal'));
   });
 
   $('save-report-btn').addEventListener('click', handleSaveReport);
